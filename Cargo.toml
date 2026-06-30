@@ -1,0 +1,26 @@
+[package]
+name = "quicklook"
+version = "0.1.0"
+edition = "2021"
+description = "Quick Look nativo estilo macOS para KDE Plasma 6 / Wayland"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+winit = "0.30"
+softbuffer = "0.4"
+image = "0.25"
+fast_image_resize = { version = "5", features = ["image"] }
+anyhow = "1"
+
+# Release de uso diario: optimizado pero con linkado rápido.
+[profile.release]
+opt-level = 3
+strip = true
+
+# Perfil de distribución (AUR): binario mínimo y máximo rendimiento.
+# Compila con: cargo build --profile dist
+[profile.dist]
+inherits = "release"
+lto = true
+codegen-units = 1
+panic = "abort"
