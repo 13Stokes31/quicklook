@@ -72,6 +72,14 @@ impl Viewer {
 
     /// Carga la imagen actual (desde caché si está, si no del disco), reajusta la
     /// ventana al nuevo aspect-ratio, invalida el escalado y repinta.
+    /// Avanza (o retrocede) en el directorio y, si cambió de imagen, la muestra.
+    fn navegar(&mut self, siguiente: bool) {
+        let cambiado = if siguiente { self.dir.next() } else { self.dir.prev() };
+        if cambiado {
+            self.show_current();
+        }
+    }
+
     fn show_current(&mut self) {
         let path = self.dir.current().to_path_buf();
         self.image = match self.prefetch.get(&path) {
@@ -198,16 +206,8 @@ impl ApplicationHandler for Viewer {
             WindowEvent::KeyboardInput { event, .. } if event.state.is_pressed() => {
                 match event.logical_key {
                     Key::Named(NamedKey::Escape) => event_loop.exit(),
-                    Key::Named(NamedKey::ArrowRight) | Key::Named(NamedKey::ArrowDown) => {
-                        if self.dir.next() {
-                            self.show_current();
-                        }
-                    }
-                    Key::Named(NamedKey::ArrowLeft) | Key::Named(NamedKey::ArrowUp) => {
-                        if self.dir.prev() {
-                            self.show_current();
-                        }
-                    }
+                    Key::Named(NamedKey::ArrowRight | NamedKey::ArrowDown) => self.navegar(true),
+                    Key::Named(NamedKey::ArrowLeft | NamedKey::ArrowUp) => self.navegar(false),
                     _ => {}
                 }
             }
