@@ -36,11 +36,31 @@ Pensado para lanzarse desde un **menú de servicio de Dolphin** (maneja bien que
 inviten con una ruta relativa). Idea de integración: asociarlo a una tecla o a la
 barra espaciadora sobre la selección, como en macOS.
 
-## Estado
+## Estado — qué funciona y qué falta
 
-MVP funcional (visor + navegación + prefetch, render por CPU con `softbuffer`).
+> **Objetivo del proyecto:** replicar el **Quick Look de macOS/Windows** en KDE —
+> pulsar una tecla sobre un archivo y ver una vista previa, moverse con las flechas.
+
+**Funciona hoy:**
+- [x] Abrir una imagen en ventana sin marco ajustada a su relación de aspecto.
+- [x] **Flechas → cambiar de archivo**: recorre las imágenes de la carpeta (orden
+  natural como Dolphin), con vuelta al principio/fin.
+- [x] Prefetch de vecinos (cambio instantáneo).
+- [x] Cerrar con Escape o al perder el foco.
+
+**Falta para la paridad con Quick Look (por retomar):**
+- [ ] **Barra espaciadora → abrir la vista previa del archivo seleccionado.** Es
+  integración con Dolphin (menú de servicio o atajo que lance `quicklook` sobre la
+  selección). **Viable.** Es el primer paso natural para retomar.
+- [ ] **Que las flechas muevan también la selección en Dolphin.** DIFÍCIL: en macOS
+  Quick Look va *dentro* de Finder; aquí somos una app **separada** y Dolphin no
+  expone una forma estable de decirle "selecciona el siguiente". Posible solo con
+  rodeos frágiles (¿DBus/KIO?); marcar como **investigación, no garantizado**.
+- [ ] **Previsualizar documentos** (PDF, ODT, etc.), no solo imágenes. Viable pero es
+  trabajo aparte: hace falta un renderizador por tipo de archivo.
+
 La variante experimental con blur de KWin y render por GPU (wgpu) vive en un repo
-aparte (`quicklook-wgpu`).
+aparte (`quicklook-wgpu`); ver su README para el estado de ESE experimento.
 
 ## Licencia
 
