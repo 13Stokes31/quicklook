@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Id": "quicklook_softblur_v2",
+        "Name": "Quick Look: blur suave y esquinas redondeadas",
+        "Description": "Desenfoque suave en los márgenes de Quick Look, con esquinas redondeadas",
+        "License": "GPL-2.0-or-later",
+        "EnabledByDefault": false
+    }
+}

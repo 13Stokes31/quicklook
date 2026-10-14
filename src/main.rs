@@ -7,7 +7,11 @@
 mod nav;
 mod prefetch;
 mod render;
+mod theme;
 mod viewer;
+
+#[cfg(test)]
+mod test_support;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -15,10 +19,27 @@ use std::process::ExitCode;
 use viewer::Viewer;
 
 fn main() -> ExitCode {
-    let Some(arg) = std::env::args().nth(1) else {
+    let mut args = std::env::args_os().skip(1);
+    let Some(mut arg) = args.next() else {
         eprintln!("uso: quicklook <ruta-de-imagen>");
         return ExitCode::FAILURE;
     };
+
+    if arg == "--help" || arg == "-h" {
+        println!("uso: quicklook [--] <ruta-de-imagen>\nFlechas: navegar. Escape/Espacio o perder el foco: cerrar.");
+        return ExitCode::SUCCESS;
+    }
+    if arg == "--" {
+        let Some(path) = args.next() else {
+            eprintln!("falta la ruta de la imagen");
+            return ExitCode::FAILURE;
+        };
+        arg = path;
+    }
+    if args.next().is_some() {
+        eprintln!("quicklook admite un único archivo inicial");
+        return ExitCode::FAILURE;
+    }
 
     let path = PathBuf::from(arg);
     if !path.is_file() {
@@ -26,7 +47,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    match Viewer::new(path).and_then(Viewer::run) {
+    match Viewer::run(path) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("error: {e:#}");

@@ -1,0 +1,6 @@
+<!DOCTYPE RCC><RCC version="1.0"><qresource prefix="/quicklook-softblur/">
+<file>shaders/vertex.vert</file>
+<file>shaders/downsample.frag</file>
+<file>shaders/upsample.frag</file>
+<file>shaders/onscreen.frag</file>
+</qresource></RCC>

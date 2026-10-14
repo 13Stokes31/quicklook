@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Id": "quicklook-center",
+    "Name": "Quick Look: centrar vista previa",
+    "Description": "Centra únicamente Quick Look al abrir y al cambiar el tamaño de la imagen.",
+    "Version": "1.0",
+    "License": "GPL-3.0-or-later",
+    "EnabledByDefault": false
+  },
+  "KPackageStructure": "KWin/Script",
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js"
+}
