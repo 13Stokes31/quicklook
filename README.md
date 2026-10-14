@@ -102,6 +102,17 @@ migrar; comprueba `command -v quicklook` y el `Exec` de tu menú local. El paque
 no borra esos archivos ni modifica su configuración. El identificador de la
 acción sigue siendo el mismo, de modo que el atajo existente se puede conservar.
 
+Si instalaste antes el módulo nativo manualmente, comprueba su propietario:
+
+```bash
+pacman -Qo /usr/lib/qt6/plugins/kwin/effects/plugins/quicklook_softblur_v2.so
+```
+
+Si no pertenece a ningún paquete, guarda una copia y retira ese archivo manual
+antes de instalar con pacman: su existencia puede causar un conflicto de archivos.
+No hace falta retirar otros archivos de KDE. Al sustituir un módulo ya cargado,
+cierra y vuelve a iniciar la sesión para que KWin use la biblioteca nueva.
+
 ## Compilar y usar
 
 La interfaz Qt usa Rust, Qt6 Widgets/DBus y KF6WindowSystem; se necesitan Rust,

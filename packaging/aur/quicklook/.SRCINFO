@@ -32,6 +32,6 @@ pkgbase = quicklook
 	options = !debug
 	options = !lto
 	source = quicklook-0.2.0.tar.gz::https://github.com/13Stokes31/quicklook/releases/download/v0.2.0/quicklook-0.2.0-source.tar.gz
-	sha256sums = 9cea8d50ed22fd999cdd6a0766949a7c4c7693d1860517969b0f3eab52adb867
+	sha256sums = 554736b74382a94daf2ea4d84290a6e672951fd353d8f177f741afe270837349
 
 pkgname = quicklook

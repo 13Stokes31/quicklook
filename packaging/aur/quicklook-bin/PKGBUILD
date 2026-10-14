@@ -17,7 +17,7 @@ conflicts=('quicklook')
 options=('!debug' '!strip')
 install=quicklook.install
 source=("$url/releases/download/v$pkgver/quicklook-$pkgver-linux-x86_64.tar.gz")
-sha256sums=('b2b176a5d5a2a9ba312ec60a536831cbda03b7a784eddc9dd047754060b00651')
+sha256sums=('3decdf1b5dff400515eb9cca5f5edf24a8b1dc8bf452623095d11db9ab3a04fe')
 
 package() {
   cd "quicklook-$pkgver-linux-x86_64"
