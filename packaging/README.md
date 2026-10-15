@@ -29,3 +29,25 @@ without authentication before pushing the recipes to AUR.
 Do not enable KWin plugins or change Dolphin shortcuts from pacman install hooks.
 The optional configurator can find a system menu and stores user backups under
 XDG_STATE_HOME; it runs only when explicitly invoked by the user.
+
+## Publication status
+
+The GitHub release `v0.2.0` and `quicklook-bin` on AUR are public. Both recipes
+have been built and verified, including the 41 Rust tests. The source package
+name `quicklook` belonged to a retired statistics tool. AUR restored that entry
+as an orphan and filed the adoption request, but requires a Package Maintainer
+to approve it before allowing a push. Do not advertise the current AUR
+`quicklook` entry as this image viewer until the new recipe is published.
+
+The prepared source recipe is in `packaging/aur/quicklook/`. On the release
+workstation its publication clone is `target/aur-publish/quicklook`, with the
+recipe already committed. Once AUR grants maintainership, publish it from that
+clone:
+
+```sh
+git -c core.sshCommand='ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes' push origin master
+```
+
+Then verify AUR reports version `0.2.0-1`, maintainer `Stokes`, and the GitHub
+URL for this project before updating the installation instructions. Published
+release archives and their checksums remain unchanged while adoption is pending.

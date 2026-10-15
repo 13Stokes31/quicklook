@@ -51,17 +51,19 @@ total del proceso incluye además las bibliotecas de Qt y los búferes de ventan
 
 ## Instalación en Arch Linux (AUR)
 
-- **`quicklook`** compila la versión publicada desde el código fuente.
-- **`quicklook-bin`** instala el binario oficial para x86_64 sin compilar Rust.
+- **[`quicklook-bin`](https://aur.archlinux.org/packages/quicklook-bin)** está
+  publicado e instala el binario oficial para x86_64 sin compilar Rust.
+- El paquete de fuentes **`quicklook`** está preparado y verificado, pendiente de
+  que AUR apruebe la adopción del nombre. La entrada actual de AUR corresponde a
+  otra herramienta antigua; todavía no sirve para instalar este visor. Puedes
+  compilar el código de esta versión siguiendo **Compilar y usar**.
 
 Ambos incluyen la interfaz Qt actual, el visor original `quicklook-opaque`, el
 menú contextual, el script de centrado y un configurador opcional del atajo.
-Son alternativas: instala uno de los dos. El binario requiere Qt 6.12 o posterior.
+Los paquetes son alternativas. El binario requiere Qt 6.12 o posterior.
 
 ```bash
 paru -S quicklook-bin
-# Alternativa desde fuentes:
-paru -S quicklook
 ```
 
 **La instalación no cambia tus atajos ni activa complementos en tu perfil.**
