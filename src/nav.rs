@@ -1,18 +1,62 @@
 //! Navegación por el directorio contenedor.
 //!
-//! Lista los archivos de imagen de la carpeta del archivo inicial, en el mismo
+//! Lista los archivos de imagen (y opcionalmente texto/PDF) de la carpeta, en el mismo
 //! orden natural que usa Dolphin (`foto2` antes que `foto10`), y mantiene el
 //! índice del que se muestra. Listar nombres es barato; no decodifica nada.
 
 use std::path::{Path, PathBuf};
 
-fn is_image(path: &Path) -> bool {
+pub(crate) fn is_image(path: &Path) -> bool {
     path.extension()
         .and_then(image::ImageFormat::from_extension)
         // image 0.25.10 anuncia AVIF con la feature de escritura, pero leerlo
         // exige avif-native, que este proyecto no habilita.
         .map(|format| format != image::ImageFormat::Avif && format.reading_enabled())
         .unwrap_or(false)
+}
+
+fn is_document(path: &Path) -> bool {
+    let extension = path
+        .extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_ascii_lowercase();
+    matches!(
+        extension.as_str(),
+        "pdf"
+            | "txt"
+            | "md"
+            | "markdown"
+            | "log"
+            | "csv"
+            | "tsv"
+            | "json"
+            | "jsonl"
+            | "yaml"
+            | "yml"
+            | "toml"
+            | "ini"
+            | "conf"
+            | "cfg"
+            | "xml"
+            | "html"
+            | "htm"
+            | "css"
+            | "js"
+            | "ts"
+            | "rs"
+            | "py"
+            | "sh"
+            | "c"
+            | "h"
+            | "cpp"
+            | "hpp"
+            | "sql"
+            | "desktop"
+    ) || matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("README" | "LICENSE" | "Makefile" | "Dockerfile")
+    )
 }
 
 /// Comparación natural de nombres: trata las secuencias de dígitos como números,
@@ -64,7 +108,18 @@ pub struct Directory {
 impl Directory {
     /// Construye la lista a partir del archivo inicial. Si la carpeta no se puede
     /// leer, cae a una lista de un solo elemento. Siempre incluye el inicial.
+    #[allow(dead_code)] // Navegación del ejecutable opaco original.
     pub fn new(initial: PathBuf) -> Self {
+        Self::list(initial, false)
+    }
+
+    /// La interfaz Qt también dispone de lectores para documentos.
+    #[allow(dead_code)] // Navegación de la interfaz Qt.
+    pub fn with_documents(initial: PathBuf) -> Self {
+        Self::list(initial, true)
+    }
+
+    fn list(initial: PathBuf, documents: bool) -> Self {
         // Normalizar a ruta absoluta: el service menu de Dolphin puede lanzarnos
         // con una ruta relativa (cwd = la carpeta), y entonces parent() quedaría
         // vacío y no encontraríamos los vecinos. canonicalize() resuelve esto.
@@ -75,7 +130,7 @@ impl Directory {
             .and_then(|p| std::fs::read_dir(p).ok())
             .map(|rd| {
                 rd.filter_map(|e| e.ok().map(|e| e.path()))
-                    .filter(|p| p.is_file() && is_image(p))
+                    .filter(|p| p.is_file() && (is_image(p) || (documents && is_document(p))))
                     .collect()
             })
             .unwrap_or_default();
@@ -142,6 +197,24 @@ mod tests {
     use super::*;
     use crate::test_support::TestDir;
     use std::cmp::Ordering;
+
+    #[test]
+    fn documents_are_opt_in_and_do_not_change_the_original_viewer() {
+        let dir = TestDir::new();
+        let image = dir.image("1.png", 2, 2);
+        std::fs::write(dir.path.join("2.md"), b"# Notes").unwrap();
+        std::fs::write(dir.path.join("3.pdf"), b"%PDF-1.4").unwrap();
+        std::fs::write(dir.path.join("4.zip"), b"PK\0").unwrap();
+        let mut original = Directory::new(image.clone());
+        assert!(!original.next());
+        let mut extended = Directory::with_documents(image);
+        assert!(extended.next());
+        assert_eq!(extended.current().file_name().unwrap(), "2.md");
+        assert!(extended.next());
+        assert_eq!(extended.current().file_name().unwrap(), "3.pdf");
+        assert!(extended.next());
+        assert_eq!(extended.current().file_name().unwrap(), "1.png");
+    }
 
     #[test]
     fn filters_only_decodable_formats() {

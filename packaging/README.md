@@ -30,24 +30,31 @@ Do not enable KWin plugins or change Dolphin shortcuts from pacman install hooks
 The optional configurator can find a system menu and stores user backups under
 XDG_STATE_HOME; it runs only when explicitly invoked by the user.
 
+## Packaging document previews
+
+Version `0.3.0` adds text and PDF previews. The historical `0.2.0`
+release archives remain unchanged. A release with PDF needs `qt6-webengine`
+as a source build dependency and an optional runtime dependency of both packages.
+The PDF module is `usr/lib/quicklook/quicklook-pdf.so`; `make install-files`
+stages it through CMake when enabled. The viewer loads it on demand and keeps
+images/text usable if it cannot load. A build configured without PDF does not
+stage a stale module left by a previous build in the same directory.
+
+Validation commands are in README.md. The source recipe runs both the Rust and
+Qt document tests. Package versions, checksums and `.SRCINFO` must refer to the
+same release.
+
 ## Publication status
 
-The GitHub release `v0.2.0` and `quicklook-bin` on AUR are public. Both recipes
-have been built and verified, including the 41 Rust tests. The source package
-name `quicklook` belonged to a retired statistics tool. AUR restored that entry
-as an orphan and filed the adoption request, but requires a Package Maintainer
-to approve it before allowing a push. Do not advertise the current AUR
-`quicklook` entry as this image viewer until the new recipe is published.
+The project distributes GitHub releases and the `quicklook-bin` AUR package.
+Verify the release downloads work without authentication and that AUR reports
+the intended version, maintainer `Stokes` and this project's GitHub URL after
+each publication.
 
-The prepared source recipe is in `packaging/aur/quicklook/`. On the release
-workstation its publication clone is `target/aur-publish/quicklook`, with the
-recipe already committed. Once AUR grants maintainership, publish it from that
-clone:
-
-```sh
-git -c core.sshCommand='ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes' push origin master
-```
-
-Then verify AUR reports version `0.2.0-1`, maintainer `Stokes`, and the GitHub
-URL for this project before updating the installation instructions. Published
-release archives and their checksums remain unchanged while adoption is pending.
+The source recipe is in `packaging/aur/quicklook/`. Its package name belonged to
+a retired statistics tool. AUR rejected adoption request PRQ#88354 and deleted
+that old entry on 19 October 2026. Deletion does not itself authorize restoring
+the entry for a different project. Reuse of that name remains a pending matter
+for AUR staff; do not restore the retired entry or advertise `quicklook` as
+installable until it is resolved. The outstanding decision is tracked in
+ROADMAP.md.

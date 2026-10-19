@@ -292,6 +292,16 @@ impl Prefetcher {
         lock.lock().unwrap().replace(id, path, neighbors);
         wake.notify_one();
     }
+
+    /// Descarta la cola al mostrar un documento; una decodificación ya iniciada
+    /// puede terminar, pero no publicará resultados de la selección anterior.
+    #[allow(dead_code)] // Solo Qt muestra documentos.
+    pub fn cancel_pending(&self, id: u64) {
+        let mut work = self.work.0.lock().unwrap();
+        work.latest_id = id;
+        work.selected = None;
+        work.neighbors.clear();
+    }
 }
 
 impl Drop for Prefetcher {

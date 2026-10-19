@@ -1,8 +1,11 @@
 # quicklook
 
-Visor de imágenes tipo Quick Look para KDE Plasma 6 / Wayland, con núcleo Rust.
-Abre una imagen en una ventana sin bordes; las flechas recorren las imágenes de
+Visor de imágenes, texto y PDF tipo Quick Look para KDE Plasma 6 / Wayland, con núcleo Rust.
+Abre un archivo en una ventana sin bordes; las flechas recorren los archivos compatibles de
 la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
+
+Desde la versión **0.3.0** admite también texto y PDF. PDF es opcional y utiliza
+Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
 
 ## Qué hace
 
@@ -10,6 +13,27 @@ la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
   navegación. Comprueba el contenido para identificar el formato.
 - Navega en orden natural (`foto2` antes que `foto10`), con vuelta al principio/fin.
   El orden no sigue la selección, los filtros ni la ordenación elegida en Dolphin.
+- La interfaz Qt admite texto UTF-8 y Latin-1: TXT, Markdown, registros, CSV,
+  JSON, XML, configuración y código. Los muestra como **texto literal**, sin
+  interpretar HTML, ejecutar código ni descargar recursos. Permite seleccionar
+  con el ratón, copiar con Ctrl+C y desplazarse con la rueda o Arriba/Abajo.
+  Izquierda/Derecha cambian de archivo incluso con el editor enfocado.
+  Lee como máximo **512 KiB** y muestra las primeras **10 000 líneas**, con un
+  aviso si recorta el contenido. No admite UTF-16 y rechaza datos binarios.
+  La navegación añade extensiones de texto habituales y los nombres README,
+  LICENSE, Makefile y Dockerfile; no abre todos los archivos de la carpeta para
+  clasificarlos. Un texto solicitado directamente puede tener otra extensión.
+  El contenido ocupa un área del 85 % dentro del marco del 90 %, conservando el
+  blur del margen. El lector Rust original `quicklook-opaque` sigue admitiendo
+  únicamente imágenes.
+- El módulo opcional PDF utiliza **Qt PDF / QPdfView**, con páginas en vertical,
+  ajuste al ancho y desplazamiento con la rueda o AvPág/RePág. Los PDF dañados o
+  protegidos con contraseña muestran un mensaje; no se solicita contraseña en
+  esta versión. Izquierda/Derecha recorren archivos y Espacio/Escape cierran.
+  El módulo se carga únicamente al abrir un PDF: si falta o no puede cargar sus
+  bibliotecas, muestra un aviso y las imágenes y el texto siguen funcionando.
+  En Arch, Qt PDF está en `qt6-webengine`; no se usa un navegador ni Qt WebEngine
+  para mostrar las páginas.
 - Decodifica en un único trabajador, también la imagen inicial. Prioriza la
   selección más reciente y precarga como máximo dos vecinos sin acumular peticiones.
 - Muestra tres puntos durante la carga y una cruz roja cuando no puede abrir una
@@ -29,7 +53,7 @@ la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
 - Escala con Lanczos y compone la transparencia sobre el mismo fondo de KDE.
 - Admite los formatos raster habilitados por `image`: JPEG, PNG, WebP, GIF, BMP,
   TIFF, ICO, QOI, PNM, TGA, HDR, EXR y farbfeld. GIF se muestra como una
-  imagen estática. SVG, AVIF, PDF y documentos no están soportados: la configuración
+  imagen estática. SVG como imagen, AVIF y documentos de Office no están soportados: la configuración
   actual de `image` permite escribir AVIF, pero no incluye su decodificador nativo.
 
 ## Límites de memoria
@@ -53,9 +77,9 @@ total del proceso incluye además las bibliotecas de Qt y los búferes de ventan
 
 - **[`quicklook-bin`](https://aur.archlinux.org/packages/quicklook-bin)** está
   publicado e instala el binario oficial para x86_64 sin compilar Rust.
-- El paquete de fuentes **`quicklook`** está preparado y verificado, pendiente de
-  que AUR apruebe la adopción del nombre. La entrada actual de AUR corresponde a
-  otra herramienta antigua; todavía no sirve para instalar este visor. Puedes
+- El paquete de fuentes **`quicklook`** está preparado, pendiente de
+  resolver con AUR la reutilización del nombre de una herramienta retirada.
+  Ese nombre todavía no sirve para instalar este visor. Puedes
   compilar el código de esta versión siguiendo **Compilar y usar**.
 
 Ambos incluyen la interfaz Qt actual, el visor original `quicklook-opaque`, el
@@ -109,6 +133,11 @@ acción sigue siendo el mismo, de modo que el atajo existente se puede conservar
 La interfaz Qt usa Rust, Qt6 Widgets/DBus y KF6WindowSystem; se necesitan Rust,
 CMake, pkg-config, Python 3 y un compilador C++20. Para el módulo suave hacen falta
 además las cabeceras de KWin 6.7.5, Qt6Quick, KCoreAddons, KConfig, epoxy y Wayland.
+Para compilar el módulo PDF se necesitan además Qt6Pdf y Qt6PdfWidgets
+(`qt6-webengine` en Arch). CMake los detecta automáticamente y continúa sin PDF
+si faltan. También puedes desactivarlo con `-DQUICKLOOK_PDF=OFF` al configurar
+CMake. Instalar Qt PDF después de una compilación que lo omitió requiere
+recompilar el módulo; los binarios distribuidos deben incluirlo por separado.
 
 ```bash
 make build
@@ -133,7 +162,7 @@ Para una ruta que coincida con una opción, usa `quicklook -- ./--help`.
 ## Integración con Dolphin
 
 `integration/quicklook.desktop` añade **Vista previa con Quick Look** al menú de
-una única imagen local seleccionada. Pasa la ruta como argumento, sin usar un
+una única imagen, PDF o archivo de texto local seleccionado. Pasa la ruta como argumento, sin usar un
 shell. No cambia las asociaciones de archivos ni la configuración de Dolphin.
 
 Instalación para el usuario, cuando quieras activarlo:
@@ -144,6 +173,7 @@ make install PREFIX="$HOME/.local"
 
 Instala la interfaz Qt en `~/.local/bin/quicklook`, el visor original en
 `~/.local/bin/quicklook-opaque`, el configurador del atajo y el script de centrado.
+Si se ha compilado, instala el módulo PDF en `~/.local/lib/quicklook/quicklook-pdf.so`.
 No activa estos ajustes. Instala el menú de servicio en
 `~/.local/share/kio/servicemenus/quicklook.desktop`. El menú se instala con permiso
 de ejecución, requerido por KDE para servicios del usuario. La instalación usa
@@ -180,9 +210,11 @@ Verificación con Dolphin real en una pantalla y un perfil aislados:
 
 ```bash
 python3 tests/smoke_shortcut.py
+python3 tests/smoke_shortcut.py --kind text
+python3 tests/smoke_shortcut.py --kind pdf
 ```
 
-La prueba selecciona una imagen, pulsa Espacio para abrirla en el visor estable,
+La prueba selecciona un archivo, pulsa Espacio para abrirlo en el visor Qt,
 lo cierra con Espacio y comprueba que la interfaz de Dolphin conserva sus menús.
 
 Para retirar los ejecutables y el menú (el atajo personalizado se retira desde Dolphin):
@@ -364,6 +396,11 @@ cargo fmt --all -- --check
 cargo test --locked
 cargo clippy --all-targets --locked -- -D warnings
 desktop-file-validate integration/quicklook.desktop
+cmake -S qt -B target/qt-build -DQUICKLOOK_BUILD_TESTS=ON
+cmake --build target/qt-build -j2
+ctest --test-dir target/qt-build --output-on-failure
+python3 tests/smoke_x11.py --binary target/qt-build/quicklook-qt --documents --pdf
+python3 tests/smoke_qt_wayland.py --documents-only
 ```
 
 Las pruebas cubren el archivo inicial, filtrado y orden de navegación, expulsión
@@ -400,15 +437,17 @@ Esta prueba crea un bus sin activación de servicios y un perfil privado dentro
 de `target/`. Verifica imágenes grandes, pequeñas y verticales con la geometría
 real del compositor, sin usar tu sesión de Plasma.
 
-Prueba manual en Plasma Wayland: abre desde Dolphin una imagen con espacios en
-el nombre; prueba Espacio, flechas, un archivo dañado entre dos imágenes, Escape,
-clic fuera y un monitor con escalado. Los errores deben reemplazar la imagen,
-y una carga que llegue tarde no debe cambiar la selección actual.
+`--documents-only` comprueba texto, PDF e imágenes en un KWin privado con
+blur nativo y fondo opaco, sin necesitar el módulo suave compilado para KWin
+6.7.5. Comprueba también los atajos con el foco dentro del contenido y guarda
+capturas en `target/qt-wayland-software-1/`. Las comprobaciones visuales en la
+sesión personal se registran en TESTING.md.
 
 ## Alcance pendiente
 
-Mover también la selección en Dolphin y previsualizar documentos requieren
-trabajo independiente. El visor recorre la carpeta por su cuenta.
+Los problemas, propuestas y decisiones pendientes se registran en
+[ROADMAP.md](ROADMAP.md). Las comprobaciones que requieren una persona están en
+[TESTING.md](TESTING.md). El visor recorre la carpeta por su cuenta.
 `PROPUESTA.md` conserva la propuesta histórica del proyecto; este README describe
 el comportamiento actual.
 

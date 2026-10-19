@@ -10,7 +10,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-from smoke_x11 import png
+from smoke_x11 import png, pdf
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,6 +27,7 @@ def wait(check, process, timeout=15):
 
 
 def session(work):
+    selected = next((work / "images").iterdir())
     env = os.environ.copy()
     env.pop("WAYLAND_DISPLAY", None)
     env.update(QT_QPA_PLATFORM="xcb", QT_QPA_PLATFORMTHEME="", NO_AT_BRIDGE="1")
@@ -56,17 +57,17 @@ def session(work):
             xdo("key", "--window", window, "ctrl+a")
             time.sleep(0.3)
             xdo("key", "--window", window, "space")
-            preview = wait(lambda: xdo("search", "--onlyvisible", "--name", "foto prueba.*Quick Look").stdout.strip(), dolphin).splitlines()[-1]
-            assert xdo("getwindowname", preview).stdout.strip() == "foto prueba.png — Quick Look"
+            preview = wait(lambda: xdo("search", "--onlyvisible", "--name", selected.stem + ".*Quick Look").stdout.strip(), dolphin).splitlines()[-1]
+            assert xdo("getwindowname", preview).stdout.strip() == selected.name + " — Quick Look"
             xdo("windowfocus", "--sync", preview)
             xdo("key", "--window", preview, "space")
-            wait(lambda: not xdo("search", "--onlyvisible", "--name", "foto prueba.*Quick Look").stdout.strip(), dolphin)
+            wait(lambda: not xdo("search", "--onlyvisible", "--name", selected.stem + ".*Quick Look").stdout.strip(), dolphin)
             xml = ET.parse(work / "data/kxmlgui5/dolphin/dolphinui.rc").getroot()
             assert xml.find("MenuBar") is not None, "la migración de XML eliminó los menús"
             shortcuts = {a.get("name"): a.get("shortcut") for a in xml.findall("ActionProperties/Action")}
             assert shortcuts["servicemenu_quicklook.desktop::quicklookPreview"] == "Space"
             assert shortcuts["toggle_selection_mode"] == ""
-            print("Dolphin real: Espacio abre la imagen seleccionada y la cierra; menús conservados: OK", flush=True)
+            print(f"Dolphin real: Espacio abre {selected.name} y la cierra; menús conservados: OK", flush=True)
         except Exception:
             print((work / "session.log").read_text(errors="replace")[-3000:])
             raise
@@ -82,6 +83,8 @@ def session(work):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--binary", type=Path, default=ROOT / "target/qt-build/quicklook-qt")
+    parser.add_argument("--kind", choices=("image", "text", "pdf"), default="image")
     args = parser.parse_args()
     if args.session:
         session(args.session)
@@ -90,11 +93,15 @@ def main():
         work = Path(directory)
         for name in ("config", "data/kio/servicemenus", "cache", "state", "r", "images"):
             (work / name).mkdir(parents=True, mode=0o700)
-        image = work / "images/foto prueba.png"
-        png(image, [0, 255, 0], 400, 300)
+        if args.kind == "image":
+            png(work / "images/foto prueba.png", [0, 255, 0], 400, 300)
+        elif args.kind == "text":
+            (work / "images/texto prueba.md").write_text("# Texto literal\nPrueba con acentos.\n")
+        else:
+            pdf(work / "images/documento prueba.pdf")
         menu = work / "data/kio/servicemenus/quicklook.desktop"
         menu.write_bytes(subprocess.check_output([sys.executable, str(ROOT / "integration/prepare-menu.py"),
-            str(ROOT / "target/release/quicklook")]))
+            str(args.binary.resolve())]))
         menu.chmod(0o755)
         env = os.environ.copy()
         env.update(XDG_CONFIG_HOME=str(work / "config"), XDG_DATA_HOME=str(work / "data"),

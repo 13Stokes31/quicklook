@@ -13,7 +13,7 @@ import tempfile
 import time
 import zlib
 
-from smoke_x11 import png
+from smoke_x11 import png, pdf
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +28,67 @@ def wait(check, process, timeout=15):
     raise AssertionError("tiempo agotado esperando el visor Qt")
 
 
-def session(work, scale, host_socket, exercise_activation, exercise_update):
+def documents_session(work, destination, env, server, dbus, log):
+    if dbus("/Effects", "isEffectLoaded", "blur").stdout.strip() != "true":
+        assert dbus("/Effects", "loadEffect", "blur").stdout.strip() == "true"
+    report_path = work / "documents.jsonl"
+    viewer = None
+    reports = []
+    try:
+        with report_path.open("w") as output:
+            viewer = subprocess.Popen([str(work / "qt-controls"), str(work / "documents/1 notas.md")],
+                env=env, stdin=subprocess.PIPE, stdout=output, stderr=log)
+
+            def ready(name, kind, blur="native", after=0):
+                def check():
+                    lines = report_path.read_text().splitlines()[after:]
+                    for line in reversed(lines):
+                        if not line.startswith("{"): continue
+                        item = json.loads(line)
+                        if item["title"] == name + " — Quick Look" and item["kind"] == kind and item["state"] == 1 and item["blur_mode"] == blur:
+                            return item
+                value = wait(check, viewer)
+                assert value["frame_width"] == round(value["screen_width"] * 0.9), value
+                assert value["frame_height"] == round(value["screen_height"] * 0.9), value
+                assert value["image_width"] <= value["screen_width"] * 0.85 + 1, value
+                assert value["image_height"] <= value["screen_height"] * 0.85 + 1, value
+                if kind != "image":
+                    assert abs(value["image_width"] - value["screen_width"] * 0.85) <= 1, value
+                    assert abs(value["image_height"] - value["screen_height"] * 0.85) <= 1, value
+                if kind == "pdf": assert value["pdf_pages"] == 2, value
+                reports.append(value)
+                return value
+
+            def command(value):
+                viewer.stdin.write((value + "\n").encode()); viewer.stdin.flush()
+
+            def capture(name):
+                subprocess.run(["spectacle", "--background", "--nonotify", "--fullscreen", "--output",
+                    str(destination / (name + ".png"))], env=env, stdout=log, stderr=log, check=True, timeout=20)
+
+            ready("1 notas.md", "text"); capture("qt-documento-texto")
+            command("content-next")
+            ready("2 documento.pdf", "pdf"); capture("qt-documento-pdf")
+            command("content-next"); ready("3 imagen.png", "image")
+            command("previous"); ready("2 documento.pdf", "pdf")
+            count = len(report_path.read_text().splitlines())
+            assert dbus("/Effects", "unloadEffect", "blur").returncode == 0
+            ready("2 documento.pdf", "pdf", "opaque", after=count)
+            capture("qt-documento-opaco")
+            count = len(report_path.read_text().splitlines())
+            assert dbus("/Effects", "loadEffect", "blur").stdout.strip() == "true"
+            ready("2 documento.pdf", "pdf", after=count)
+            command("content-space")
+            assert viewer.wait(timeout=5) == 0
+            viewer = None
+        (destination / "documentos.json").write_text(json.dumps(reports, indent=2) + "\n")
+        print("Texto → PDF → imagen, contenido al 85 %, marco al 90 %, blur nativo → opaco → nativo y Espacio dentro del PDF: OK", flush=True)
+    finally:
+        if viewer is not None and viewer.poll() is None:
+            viewer.terminate(); viewer.wait(timeout=5)
+
+
+def session(work, scale, host_socket, exercise_activation, exercise_update, documents_only=False):
     env = os.environ.copy()
     env.pop("DISPLAY", None)
     env.update(WAYLAND_DISPLAY="qq", QT_QPA_PLATFORM="wayland", QT_QPA_PLATFORMTHEME="", QT_SCALE_FACTOR="1",
@@ -58,6 +118,11 @@ def session(work, scale, host_socket, exercise_activation, exercise_update):
                 configured = subprocess.run(["kscreen-doctor", f"output.1.scale.{scale}"], env=env,
                     capture_output=True, text=True, timeout=15)
                 assert configured.returncode == 0, configured.stdout + configured.stderr
+            if documents_only:
+                background = subprocess.Popen([str(work / "blur-reference"), "--test-background",
+                    "--test-stripe-width", "32"], env=env, stdout=log, stderr=log)
+                documents_session(work, destination, env, server, dbus, log)
+                return
             loaded = dbus("/Effects", "loadEffect", "quicklook_softblur" if exercise_update else "quicklook_softblur_v2")
             assert loaded.stdout.strip() == "true", loaded.stdout + loaded.stderr
             assert dbus("/QuickLookSoftBlur", "ready").stdout.strip() == "true"
@@ -211,13 +276,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--scale", type=float, default=1.0, choices=(1.0, 1.5, 2.0))
+    parser.add_argument("--documents-only", action="store_true", help="texto/PDF con blur nativo y opaco, sin módulo propio de KWin")
     parser.add_argument("--gpu", action="store_true", help="usar una ventana anidada en la GPU real")
     parser.add_argument("--host-socket", help=argparse.SUPPRESS)
     parser.add_argument('--exercise-activation', action='store_true', help='probar activación y reversión en un prefijo privado')
     parser.add_argument('--exercise-update', action='store_true', help='probar actualización del módulo nativo sin reiniciar el compositor privado')
     args = parser.parse_args()
     if args.session:
-        session(args.session, args.scale, args.host_socket, args.exercise_activation, args.exercise_update)
+        session(args.session, args.scale, args.host_socket, args.exercise_activation, args.exercise_update, args.documents_only)
         return
     host = None
     if args.gpu:
@@ -235,7 +301,9 @@ def main():
         gui_flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "Qt6Gui"], text=True).split()
         subprocess.run(["c++", "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
             str(ROOT / "tests/check_qt_captures.cpp"), *gui_flags, "-o", str(work / "check-qt-captures")], check=True)
-        for name in ("config", "data", "cache", "state", "r", "images"):
+        if args.documents_only:
+            shutil.copy2(ROOT / "target/qt-build/quicklook-pdf.so", work / "quicklook-pdf.so")
+        for name in ("config", "data", "cache", "state", "r", "images", "documents"):
             (work / name).mkdir(mode=0o700)
         shutil.copytree(ROOT / "integration/kwin", work / "data/kwin/scripts/quicklook-center")
         if args.exercise_update:
@@ -248,6 +316,9 @@ def main():
         png(work / "images/1 verde.png", [0, 255, 0], 800, 1200)
         (work / "images/2 error.png").write_bytes(b"invalid")
         png(work / "images/3 azul.png", [0, 0, 255], 1200, 600)
+        (work / "documents/1 notas.md").write_text("# Texto literal\nPrueba de lectura y selección.\n" * 50)
+        pdf(work / "documents/2 documento.pdf")
+        png(work / "documents/3 imagen.png", [0, 0, 255], 1200, 600)
         def chunk(kind, value):
             return struct.pack(">I", len(value)) + kind + value + struct.pack(">I", zlib.crc32(kind + value))
         rows = (b"\0" + bytes([255, 0, 0, 128]) * 200) * 400
@@ -264,6 +335,7 @@ def main():
         command = ["dbus-run-session", "--config-file=" + str(bus), "--", sys.executable,
             str(Path(__file__).resolve()), "--session", str(work), "--scale", str(args.scale)]
         if host: command += ["--host-socket", host]
+        if args.documents_only: command.append("--documents-only")
         if args.exercise_activation: command.append('--exercise-activation')
         if args.exercise_update: command.append('--exercise-update')
         subprocess.run(command, env=env, check=True, timeout=120)

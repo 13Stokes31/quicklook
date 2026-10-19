@@ -1,14 +1,15 @@
 # Maintainer: Stokes
 pkgname=quicklook
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
-pkgdesc='Quick Look image preview for KDE Plasma 6 with optional soft blur'
+pkgdesc='Quick Look image, text and PDF preview for KDE Plasma 6 with optional soft blur'
 arch=('x86_64')
 url='https://github.com/13Stokes31/quicklook'
 license=('GPL-3.0-or-later' 'GPL-2.0-or-later')
 depends=('glibc' 'gcc-libs' 'qt6-base>=6.12' 'qt6-wayland' 'kwindowsystem' 'libglvnd')
-makedepends=('cargo' 'cmake' 'pkgconf' 'python' 'kwin' 'qt6-declarative' 'libepoxy' 'wayland' 'kcoreaddons' 'kconfig')
+makedepends=('cargo' 'cmake' 'pkgconf' 'python' 'kwin' 'qt6-declarative' 'libepoxy' 'wayland' 'kcoreaddons' 'kconfig' 'qt6-webengine')
 optdepends=('dolphin: file manager service menu and Space shortcut (26.04+)'
+            'qt6-webengine: optional PDF preview module'
             'kwin: window centering and blur'
             'qt6-declarative: optional KWin soft blur module'
             'libepoxy: optional KWin soft blur module'
@@ -17,7 +18,7 @@ conflicts=('quicklook-bin')
 options=('!debug' '!lto')
 install=quicklook.install
 source=("quicklook-$pkgver.tar.gz::$url/releases/download/v$pkgver/quicklook-$pkgver-source.tar.gz")
-sha256sums=('9cea8d50ed22fd999cdd6a0766949a7c4c7693d1860517969b0f3eab52adb867')
+sha256sums=('40235b649f477f2e204d1011ae518b3619af5e3da94bcba19fe19c9508faa69c')
 
 prepare() {
   cd "quicklook-$pkgver"
@@ -28,6 +29,8 @@ build() {
   cd "quicklook-$pkgver"
   export CARGO_TARGET_DIR="$PWD/target"
   make build CARGO_FLAGS=--offline
+  cmake -S qt -B target/qt-build -DQUICKLOOK_BUILD_TESTS=ON
+  cmake --build target/qt-build -j2
   if [[ -r /usr/include/kwin/config-kwin.h ]] && \
      grep -q '^#define KWIN_PLUGIN_VERSION_STRING "6\.7\.5"' /usr/include/kwin/config-kwin.h; then
     make build-softblur
@@ -39,6 +42,7 @@ build() {
 check() {
   cd "quicklook-$pkgver"
   CARGO_TARGET_DIR="$PWD/target" cargo test --release --locked --offline
+  ctest --test-dir target/qt-build --output-on-failure
 }
 
 package() {

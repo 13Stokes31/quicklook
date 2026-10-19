@@ -1,10 +1,12 @@
 //! Adaptador C para Qt. Solo el hilo de la interfaz accede a estos manejadores.
 use std::ffi::{c_char, CString, OsString};
+use std::io::Read;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc};
 
-use crate::nav::Directory;
+use crate::nav::{is_image, Directory};
 use crate::prefetch::{ImageEvent, Prefetcher, QtFrame};
 use crate::render::ImageRect;
 use crate::theme::window_background;
@@ -13,6 +15,46 @@ enum Preview {
     Loading,
     Ready(Arc<QtFrame>),
     Failed(String),
+    Document,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+enum Kind {
+    Image = 0,
+    Text = 1,
+    Pdf = 2,
+}
+
+fn document_kind(path: &std::path::Path) -> Kind {
+    if is_image(path) {
+        return Kind::Image;
+    }
+    if path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+    {
+        return Kind::Pdf;
+    }
+    let mut bytes = [0; 8192];
+    let Ok(length) = std::fs::File::open(path).and_then(|mut file| file.read(&mut bytes)) else {
+        return Kind::Image;
+    };
+    let bytes = &bytes[..length];
+    if bytes.starts_with(b"%PDF-") {
+        return Kind::Pdf;
+    }
+    if image::guess_format(bytes).is_ok() {
+        return Kind::Image;
+    }
+    if bytes
+        .iter()
+        .any(|&byte| byte < 32 && !matches!(byte, b'\t' | b'\r' | b'\n' | 12))
+    {
+        Kind::Image
+    } else {
+        Kind::Text
+    }
 }
 
 pub struct Backend {
@@ -23,6 +65,8 @@ pub struct Backend {
     preview: Preview,
     title: CString,
     background: u32,
+    kind: Kind,
+    path: CString,
 }
 
 impl Backend {
@@ -33,13 +77,15 @@ impl Backend {
             let _ = sent.send(event);
         })?;
         let mut result = Self {
-            dir: Directory::new(path),
+            dir: Directory::with_documents(path),
             worker,
             received,
             request_id: 0,
             preview: Preview::Loading,
             title: CString::default(),
             background: window_background(),
+            kind: Kind::Image,
+            path: CString::default(),
         };
         result.request();
         Ok(result)
@@ -47,6 +93,14 @@ impl Backend {
 
     fn request(&mut self) {
         self.request_id = self.request_id.wrapping_add(1);
+        self.path = CString::new(self.dir.current().as_os_str().as_bytes()).unwrap();
+        self.kind = document_kind(self.dir.current());
+        if self.kind != Kind::Image {
+            self.worker.cancel_pending(self.request_id);
+            self.preview = Preview::Document;
+            self.update_title();
+            return;
+        }
         self.preview = self
             .worker
             .cached_qt(self.dir.current())
@@ -56,7 +110,8 @@ impl Backend {
             self.dir.current().to_path_buf(),
             [self.dir.peek_next(), self.dir.peek_prev()]
                 .into_iter()
-                .flatten(),
+                .flatten()
+                .filter(|path| is_image(path)),
         );
         self.update_title();
     }
@@ -70,7 +125,7 @@ impl Backend {
             .to_string_lossy();
         let title = match &self.preview {
             Preview::Loading => format!("{name} — Cargando — Quick Look"),
-            Preview::Ready(_) => format!("{name} — Quick Look"),
+            Preview::Ready(_) | Preview::Document => format!("{name} — Quick Look"),
             Preview::Failed(error) => format!("{name} — No se pudo abrir: {error} — Quick Look"),
         };
         self.title = CString::new(title.replace('\0', "�")).unwrap();
@@ -101,6 +156,9 @@ impl Backend {
     }
 
     fn render(&mut self, width: u32, height: u32) -> Option<(*const u32, ImageRect)> {
+        if self.kind != Kind::Image {
+            return None;
+        }
         if self.worker.configure_qt(width, height, self.background) {
             self.request();
         }
@@ -162,9 +220,19 @@ pub unsafe extern "C" fn ql_navigate(backend: *mut Backend, next: bool) -> bool 
 pub unsafe extern "C" fn ql_state(backend: *const Backend) -> u32 {
     match unsafe { backend.as_ref() }.map(|backend| &backend.preview) {
         Some(Preview::Loading) => 0,
-        Some(Preview::Ready(_)) => 1,
+        Some(Preview::Ready(_) | Preview::Document) => 1,
         _ => 2,
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ql_kind(backend: *const Backend) -> u32 {
+    unsafe { backend.as_ref() }.map_or(0, |b| b.kind as u32)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ql_path(backend: *const Backend) -> *const c_char {
+    unsafe { backend.as_ref() }.map_or(std::ptr::null(), |b| b.path.as_ptr())
 }
 
 #[no_mangle]
@@ -201,6 +269,51 @@ mod tests {
     use super::*;
     use crate::test_support::TestDir;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn documents_skip_image_decoding_and_ignore_late_image_results() {
+        let dir = TestDir::new();
+        let image = dir.image("1.png", 2, 2);
+        let text = dir.path.join("2.txt");
+        std::fs::write(&text, b"<b>literal text</b>").unwrap();
+        let mut backend = Backend::new(image).unwrap();
+        let old_id = backend.request_id;
+        backend.dir.next();
+        backend.request();
+        assert_eq!(backend.kind as u32, Kind::Text as u32);
+        assert!(matches!(backend.preview, Preview::Document));
+        assert!(backend.render(200, 100).is_none());
+        assert!(backend.path.as_bytes().ends_with(b"2.txt"));
+        let (sent, received) = mpsc::channel();
+        backend.received = received;
+        sent.send(ImageEvent {
+            id: old_id,
+            path: text,
+            result: Err("late".into()),
+            qt_frame: None,
+        })
+        .unwrap();
+        assert!(!backend.poll());
+        assert!(matches!(backend.preview, Preview::Document));
+        backend.dir.prev();
+        backend.request();
+        assert_eq!(backend.kind as u32, Kind::Image as u32);
+    }
+
+    #[test]
+    fn content_detection_preserves_images_without_extension_and_rejects_binary_text() {
+        let dir = TestDir::new();
+        let original = dir.image("picture.png", 2, 2);
+        let image = dir.path.join("picture");
+        std::fs::rename(original, &image).unwrap();
+        let pdf = dir.path.join("document");
+        std::fs::write(&pdf, b"%PDF-1.4\n").unwrap();
+        let binary = dir.path.join("binary.txt");
+        std::fs::write(&binary, b"bad\0data").unwrap();
+        assert_eq!(document_kind(&image) as u32, Kind::Image as u32);
+        assert_eq!(document_kind(&pdf) as u32, Kind::Pdf as u32);
+        assert_eq!(document_kind(&binary) as u32, Kind::Image as u32);
+    }
 
     fn loaded(backend: &mut Backend) {
         backend.render(180, 180);

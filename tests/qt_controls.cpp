@@ -31,6 +31,12 @@ int main(int argc, char **argv)
             pending.remove(0, end + 1);
             if (command == "next" || command == "previous") {
                 QTest::keyClick(&preview, command == "next" ? Qt::Key_Right : Qt::Key_Left, Qt::NoModifier, 0);
+            } else if (command == "content-next" || command == "content-space") {
+                QWidget *content = preview.findChild<QWidget *>("quicklook-pdf-pages");
+                if (!content || !content->isVisible()) { content = preview.findChild<QPlainTextEdit *>(); }
+                if (!content || !content->isVisible()) { app.exit(1); return; }
+                content->setFocus();
+                QTest::keyClick(content, command == "content-next" ? Qt::Key_Right : Qt::Key_Space, Qt::NoModifier, 0);
             } else if (command == "rapid") {
                 for (int i = 0; i < 120; ++i) {
                     QTest::keyClick(&preview, Qt::Key_Right, Qt::NoModifier, 0);

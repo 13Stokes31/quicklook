@@ -1,8 +1,10 @@
 #include "backend.h"
+#include "documentview.h"
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDynamicPropertyChangeEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QImage>
@@ -59,6 +61,7 @@ public:
         setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
         setAttribute(Qt::WA_TranslucentBackground);
         m_background = QColor::fromRgb(ql_background(backend));
+        qApp->installEventFilter(this);
         auto bus = QDBusConnection::sessionBus();
         m_service = QString("org.quicklook.Blur.p%1").arg(QCoreApplication::applicationPid());
         m_registered = bus.registerService(m_service)
@@ -83,12 +86,37 @@ public:
     }
 
 protected:
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        // Los lectores de documentos reciben foco para seleccionar/copiar y
+        // desplazarse; los controles comunes siguen funcionando dentro de ellos.
+        auto *widget = qobject_cast<QWidget *>(object);
+        if (widget && m_document && m_document->isAncestorOf(widget) && event->type() == QEvent::DynamicPropertyChange
+            && static_cast<QDynamicPropertyChangeEvent *>(event)->propertyName() == "quicklookState") {
+            QTimer::singleShot(0, this, &Preview::synchronize);
+        }
+        // Reclamar los controles antes de que el lector resuelva sus atajos,
+        // tanto en la ventana nativa como en los widgets con foco.
+        const bool ownTarget = object == windowHandle() || (widget && (widget == this || isAncestorOf(widget)));
+        if (ownTarget && (event->type() == QEvent::KeyPress || event->type() == QEvent::ShortcutOverride)) {
+            auto *key = static_cast<QKeyEvent *>(event);
+            if (key->modifiers() == Qt::NoModifier && (key->key() == Qt::Key_Escape
+                || key->key() == Qt::Key_Space || key->key() == Qt::Key_Left || key->key() == Qt::Key_Right)) {
+                if (event->type() == QEvent::ShortcutOverride) { key->accept(); }
+                else { keyPressEvent(key); }
+                return true;
+            }
+        }
+        return QWidget::eventFilter(object, event);
+    }
+
     void showEvent(QShowEvent *) override
     {
         connect(windowHandle(), &QWindow::screenChanged, this, [this] { fitScreen(); });
         fitScreen();
         checkEffect();
         if (!m_solid) { m_availability.start(); }
+        if (m_report) { QTimer::singleShot(100, this, &Preview::report); }
     }
 
     void changeEvent(QEvent *event) override
@@ -137,7 +165,7 @@ protected:
             const QImage image(reinterpret_cast<const uchar *>(m_pixels), m_pixelSize.width(),
                 m_pixelSize.height(), m_pixelSize.width() * 4, QImage::Format_RGB32);
             painter.drawImage(m_imageRect, image, m_sourceRect);
-        } else {
+        } else if (ql_kind(m_backend.get()) == 0) {
             painter.setPen(Qt::NoPen);
             if (ql_state(m_backend.get()) == 2) {
                 painter.setPen(QPen(QColor(0xe5, 0x73, 0x73), 5));
@@ -208,6 +236,20 @@ private:
         }
         m_pixels = nullptr;
         m_imageRect = {};
+        if (ql_kind(m_backend.get()) != 0) {
+            if (!m_document) { m_document = new DocumentView(m_background, this); }
+            const int insetX = qRound(width() * (1.0 - 85.0 / 90.0) / 2.0);
+            const int insetY = qRound(height() * (1.0 - 85.0 / 90.0) / 2.0);
+            m_imageRect = rect().adjusted(insetX, insetY, -insetX, -insetY);
+            m_document->setGeometry(m_imageRect.toAlignedRect());
+            m_document->open(QByteArray(ql_path(m_backend.get())), ql_kind(m_backend.get()));
+            m_document->show();
+            setWindowTitle(QString::fromUtf8(ql_title(m_backend.get())));
+            if (m_document->state() == 2) { setWindowTitle(windowTitle() + " — " + m_document->error()); }
+            publishGeometry();
+            return;
+        }
+        if (m_document) { m_document->reset(); }
         const double scale = devicePixelRatioF();
         const QSize surface(qMax(1, qRound(width() * scale)), qMax(1, qRound(height() * scale)));
         ImageRect source{};
@@ -247,7 +289,11 @@ private:
 
     void report() const
     {
-        const QJsonObject report{{"title", windowTitle()}, {"state", int(ql_state(m_backend.get()))},
+        const bool document = ql_kind(m_backend.get()) != 0;
+        const QJsonObject report{{"title", windowTitle()}, {"state", int(document && m_document ? m_document->state() : ql_state(m_backend.get()))},
+            {"kind", ql_kind(m_backend.get()) == 2 ? "pdf" : document ? "text" : "image"},
+            {"text_truncated", document && m_document && m_document->truncated()},
+            {"pdf_pages", document && m_document ? m_document->pageCount() : 0},
             {"frame_width", width()}, {"frame_height", height()}, {"device_pixel_ratio", devicePixelRatioF()},
             {"screen_width", screen()->geometry().width()}, {"screen_height", screen()->geometry().height()},
             {"image_x", m_imageRect.x()}, {"image_y", m_imageRect.y()},
@@ -260,6 +306,7 @@ private:
     }
 
     std::unique_ptr<QuickLookBackend, decltype(&ql_destroy)> m_backend;
+    DocumentView *m_document = nullptr;
     BlurGeometry m_geometry;
     QTimer m_poll, m_availability;
     QPointer<QScreen> m_screen;
@@ -288,13 +335,13 @@ int main(int argc, char **argv)
         if (!literal && arg == "--report") { report = true; continue; }
         if (!literal && arg == "--choose-image") { choose = true; continue; }
         if (!literal && (arg == "--help" || arg == "-h")) {
-            QTextStream(stdout) << "uso: quicklook-qt [--solid] [--] imagen\nFlechas: navegar. Escape/Espacio o perder el foco: cerrar.\n";
+            QTextStream(stdout) << "uso: quicklook-qt [--solid] [--] archivo\nFlechas: navegar. Escape/Espacio o perder el foco: cerrar.\n";
             return 0;
         }
-        if (!path.isEmpty()) { QTextStream(stderr) << "Indica una única imagen.\n"; return 1; }
+        if (!path.isEmpty()) { QTextStream(stderr) << "Indica un único archivo.\n"; return 1; }
         path = arg;
     }
-    if (path.isEmpty() && !choose) { QTextStream(stderr) << "Indica una imagen.\n"; return 1; }
+    if (path.isEmpty() && !choose) { QTextStream(stderr) << "Indica un archivo.\n"; return 1; }
     // Solapar la lectura/decodificación con la inicialización de Qt.
     std::unique_ptr<QuickLookBackend, decltype(&ql_destroy)> backend(nullptr, ql_destroy);
     if (!path.isEmpty()) {
@@ -306,7 +353,7 @@ int main(int argc, char **argv)
     app.setDesktopFileName("org.quicklook.SoftBlur");
     if (path.isEmpty()) {
         const QString selected = QFileDialog::getOpenFileName(nullptr, "Probar Quick Look",
-            QDir::homePath(), "Imágenes (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff);;Todos los archivos (*)");
+            QDir::homePath(), "Archivos compatibles (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff *.txt *.md *.pdf);;Todos los archivos (*)");
         if (selected.isEmpty()) { return 0; }
         path = QFile::encodeName(selected);
     }

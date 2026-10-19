@@ -22,7 +22,7 @@ install: build install-files
 
 install-files: install-centering
 	$(PYTHON) integration/prepare-menu.py "$(PREFIX)/bin/quicklook" > target/quicklook.desktop
-	install -Dm755 target/qt-build/quicklook-qt "$(DESTDIR)$(PREFIX)/bin/quicklook"
+	DESTDIR="$(DESTDIR)" cmake --install target/qt-build --prefix "$(PREFIX)"
 	install -Dm755 target/release/quicklook "$(DESTDIR)$(PREFIX)/bin/quicklook-opaque"
 	install -Dm755 target/quicklook.desktop "$(DESTDIR)$(PREFIX)/share/kio/servicemenus/quicklook.desktop"
 	install -Dm755 integration/configure-shortcut.py "$(DESTDIR)$(PREFIX)/bin/quicklook-dolphin-shortcut"
@@ -35,6 +35,7 @@ install-softblur:
 
 uninstall:
 	rm -f -- "$(DESTDIR)$(PREFIX)/share/kio/servicemenus/quicklook.desktop" "$(DESTDIR)$(PREFIX)/bin/quicklook" "$(DESTDIR)$(PREFIX)/bin/quicklook-opaque" "$(DESTDIR)$(PREFIX)/bin/quicklook-dolphin-shortcut"
+	rm -f -- "$(DESTDIR)$(PREFIX)/lib/quicklook/quicklook-pdf.so"
 
 install-centering:
 	install -Dm644 integration/kwin/metadata.json "$(DESTDIR)$(PREFIX)/share/kwin/scripts/quicklook-center/metadata.json"
