@@ -4,6 +4,12 @@
 
 - [ ] Validación manual de texto y PDF en Plasma Wayland, temas claro/oscuro y
   escalado fraccionario. Los pasos están en TESTING.md.
+- [ ] Añadir vista previa de ODT, DOC, DOCX, ODS, XLS y XLSX. La conversión con
+  LibreOffice a PDF se ha probado con archivos sintéticos de los seis formatos
+  (aproximadamente 2–3 segundos por conversión en este equipo). Falta autorizar
+  LibreOffice como dependencia opcional e integrar conversión asíncrona,
+  cancelación y reutilización de resultados. Revisar la paginación de hojas
+  anchas y la fidelidad de documentos complejos antes de publicarlo.
 - [ ] Valorar audio/vídeo y miniaturas KIO para otros documentos después de
   verificar el uso de texto y PDF. No incorporar la suite Plasma Fusion como
   dependencia: su visor sirve como referencia, pero nuestra interfaz mantiene
