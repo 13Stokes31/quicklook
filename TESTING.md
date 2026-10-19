@@ -1,8 +1,8 @@
 # Comprobaciones manuales
 
-Pendientes sobre la compilación de desarrollo con soporte de texto y PDF. Estas
+Comprobaciones de uso real pendientes para la versión 0.3.0 con texto y PDF. Estas
 comprobaciones complementan las pruebas automáticas descritas en README.md.
-No están verificadas en la sesión personal ni en el paquete AUR publicado.
+Las pruebas automáticas del paquete instalado no sustituyen esta revisión manual.
 
 - [ ] En Plasma Wayland, ejecutar `target/qt-build/quicklook-qt README.md`.
   Comprobar que el texto se lee bien, el contenido ocupa el área central del

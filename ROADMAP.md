@@ -8,8 +8,9 @@
   verificar el uso de texto y PDF. No incorporar la suite Plasma Fusion como
   dependencia: su visor sirve como referencia, pero nuestra interfaz mantiene
   el marco 90 %, contenido 85 % y blur suave con sus respaldos.
-- [ ] Publicar una nueva versión y actualizar los paquetes cuando la ampliación
-  esté validada; no cambiar archivos ni huellas de la versión 0.2.0 publicada.
+- [x] Publicar la versión 0.3.0 y actualizar `quicklook-bin` en AUR (19 de
+  octubre de 2026). Los archivos y huellas de la versión 0.2.0 se conservan.
+  Se corrigió y verificó la carga de PDF mediante el enlace del menú personal.
 - [ ] Resolver con AUR la reutilización del nombre `quicklook` para el paquete
   de fuentes. La solicitud de adopción PRQ#88354 fue rechazada y la entrada
   antigua eliminada el 19 de octubre de 2026. La distribución disponible utiliza
