@@ -1,11 +1,13 @@
 # quicklook
 
-Visor de imágenes, texto y PDF tipo Quick Look para KDE Plasma 6 / Wayland, con núcleo Rust.
-Abre un archivo en una ventana sin bordes; las flechas recorren los archivos compatibles de
+Visor de imágenes, documentos y carpetas tipo Quick Look para KDE Plasma 6 / Wayland, con núcleo Rust.
+Abre una vista previa en una ventana sin bordes; las flechas recorren los elementos compatibles de
 la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
 
 Desde la versión **0.3.0** admite también texto y PDF. PDF es opcional y utiliza
 Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
+La versión **0.4.0, en desarrollo**, añade documentos de Office mediante LibreOffice opcional y
+el contenido directo de carpetas, sin explorar las subcarpetas.
 
 ## Qué hace
 
@@ -34,6 +36,27 @@ Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
   bibliotecas, muestra un aviso y las imágenes y el texto siguen funcionando.
   En Arch, Qt PDF está en `qt6-webengine`; no se usa un navegador ni Qt WebEngine
   para mostrar las páginas.
+- Admite **ODT, DOC, DOCX, ODS, XLS y XLSX** si están disponibles el módulo PDF,
+  Qt PDF y **LibreOffice** (`libreoffice-fresh` o `libreoffice-still` en Arch).
+  Copia el original a una carpeta temporal privada y lo convierte a PDF en
+  segundo plano. Usa un perfil de LibreOffice independiente, con ejecución de
+  macros desactivada y actualización automática de enlaces desactivada. Este
+  perfil no es un aislamiento del sistema operativo. La conversión no edita el
+  original ni usa el perfil o las ventanas habituales de LibreOffice.
+  Se cancela al cambiar de elemento o cerrar la vista previa y tiene un límite
+  de **60 segundos**. Reutiliza la última conversión de la ventana mientras el
+  archivo no cambie; los temporales se eliminan al cerrar. Cada documento de
+  entrada y PDF generado puede ocupar como máximo **64 MiB**.
+  Una conversión sencilla puede tardar unos segundos; documentos complejos
+  pueden tardar más o diferir por sus fuentes, formato y áreas de impresión.
+  Las hojas de cálculo se muestran como páginas, con la paginación de LibreOffice.
+- Las **carpetas** muestran nombres, tamaños de archivos, tipos y fechas en una
+  lista de solo lectura, incluidos los elementos ocultos. Solo se carga el
+  **contenido directo**: las subcarpetas aparecen como entradas, sin expandirse,
+  recorrer sus contenidos ni calcular sus tamaños totales. El listado utiliza
+  el trabajador nativo de Qt y no necesita LibreOffice ni Qt PDF. Requiere una
+  ruta de carpeta compatible con UTF-8. Izquierda/Derecha recorren los elementos
+  vecinos de la carpeta contenedora y Espacio/Escape cierran la vista previa.
 - Decodifica en un único trabajador, también la imagen inicial. Prioriza la
   selección más reciente y precarga como máximo dos vecinos sin acumular peticiones.
 - Muestra tres puntos durante la carga y una cruz roja cuando no puede abrir una
@@ -53,7 +76,7 @@ Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
 - Escala con Lanczos y compone la transparencia sobre el mismo fondo de KDE.
 - Admite los formatos raster habilitados por `image`: JPEG, PNG, WebP, GIF, BMP,
   TIFF, ICO, QOI, PNM, TGA, HDR, EXR y farbfeld. GIF se muestra como una
-  imagen estática. SVG como imagen, AVIF y documentos de Office no están soportados: la configuración
+  imagen estática. SVG como imagen y AVIF no están soportados: la configuración
   actual de `image` permite escribir AVIF, pero no incluye su decodificador nativo.
 
 ## Límites de memoria
@@ -88,6 +111,13 @@ Los paquetes son alternativas. El binario requiere Qt 6.12 o posterior.
 
 ```bash
 paru -S quicklook-bin
+```
+
+Para documentos de Office instala también Qt PDF y LibreOffice. Ambos son
+opcionales; las imágenes, el texto y las carpetas funcionan sin ellos:
+
+```bash
+sudo pacman -S qt6-webengine libreoffice-fresh
 ```
 
 **La instalación no cambia tus atajos ni activa complementos en tu perfil.**
@@ -162,7 +192,7 @@ Para una ruta que coincida con una opción, usa `quicklook -- ./--help`.
 ## Integración con Dolphin
 
 `integration/quicklook.desktop` añade **Vista previa con Quick Look** al menú de
-una única imagen, PDF o archivo de texto local seleccionado. Pasa la ruta como argumento, sin usar un
+una única imagen, documento compatible o carpeta local seleccionada. Pasa la ruta como argumento, sin usar un
 shell. No cambia las asociaciones de archivos ni la configuración de Dolphin.
 
 Instalación para el usuario, cuando quieras activarlo:
@@ -212,6 +242,7 @@ Verificación con Dolphin real en una pantalla y un perfil aislados:
 python3 tests/smoke_shortcut.py
 python3 tests/smoke_shortcut.py --kind text
 python3 tests/smoke_shortcut.py --kind pdf
+python3 tests/smoke_shortcut.py --kind folder
 ```
 
 La prueba selecciona un archivo, pulsa Espacio para abrirlo en el visor Qt,

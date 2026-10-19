@@ -33,6 +33,7 @@ int main(int argc, char **argv)
                 QTest::keyClick(&preview, command == "next" ? Qt::Key_Right : Qt::Key_Left, Qt::NoModifier, 0);
             } else if (command == "content-next" || command == "content-space") {
                 QWidget *content = preview.findChild<QWidget *>("quicklook-pdf-pages");
+                if (!content || !content->isVisible()) { content = preview.findChild<QWidget *>("quicklook-folder"); }
                 if (!content || !content->isVisible()) { content = preview.findChild<QPlainTextEdit *>(); }
                 if (!content || !content->isVisible()) { app.exit(1); return; }
                 content->setFocus();

@@ -6,7 +6,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 use std::sync::{mpsc, Arc};
 
-use crate::nav::{is_image, Directory};
+use crate::nav::{is_image, is_office, Directory};
 use crate::prefetch::{ImageEvent, Prefetcher, QtFrame};
 use crate::render::ImageRect;
 use crate::theme::window_background;
@@ -24,9 +24,17 @@ enum Kind {
     Image = 0,
     Text = 1,
     Pdf = 2,
+    Office = 3,
+    Folder = 4,
 }
 
 fn document_kind(path: &std::path::Path) -> Kind {
+    if path.is_dir() {
+        return Kind::Folder;
+    }
+    if is_office(path) {
+        return Kind::Office;
+    }
     if is_image(path) {
         return Kind::Image;
     }
@@ -71,7 +79,10 @@ pub struct Backend {
 
 impl Backend {
     fn new(path: PathBuf) -> anyhow::Result<Self> {
-        anyhow::ensure!(path.is_file(), "no es un archivo");
+        anyhow::ensure!(
+            path.is_file() || path.is_dir(),
+            "no es un archivo ni una carpeta"
+        );
         let (sent, received) = mpsc::channel();
         let worker = Prefetcher::new_qt(move |event| {
             let _ = sent.send(event);
@@ -313,6 +324,21 @@ mod tests {
         assert_eq!(document_kind(&image) as u32, Kind::Image as u32);
         assert_eq!(document_kind(&pdf) as u32, Kind::Pdf as u32);
         assert_eq!(document_kind(&binary) as u32, Kind::Image as u32);
+    }
+
+    #[test]
+    fn office_and_folder_do_not_enter_the_image_worker() {
+        let dir = TestDir::new();
+        let folder = dir.path.join("folder");
+        std::fs::create_dir(&folder).unwrap();
+        let office = dir.path.join("file.docx");
+        std::fs::write(&office, b"PK\0office").unwrap();
+        for (path, expected) in [(office, Kind::Office), (folder, Kind::Folder)] {
+            let mut backend = Backend::new(path).unwrap();
+            assert_eq!(backend.kind as u32, expected as u32);
+            assert!(matches!(backend.preview, Preview::Document));
+            assert!(backend.render(200, 100).is_none());
+        }
     }
 
     fn loaded(backend: &mut Backend) {

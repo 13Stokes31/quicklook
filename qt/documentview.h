@@ -1,6 +1,8 @@
 #pragma once
 
 #include "localfile.h"
+#include "folderview.h"
+#include "officeconverter.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -42,6 +44,13 @@ public:
         m_text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
         m_text->setLineWrapMode(QPlainTextEdit::NoWrap);
         layout->addWidget(m_text);
+        m_office = new OfficeConverter(this);
+        connect(m_office, &OfficeConverter::converted, this, [this](const QString &pdf) {
+            m_notice->hide();
+            openPdf(QFile::encodeName(pdf));
+            setProperty("quicklookState", state());
+        });
+        connect(m_office, &OfficeConverter::failed, this, [this](const QString &error) { fail(error); });
     }
 
     void open(const QString &path, uint32_t kind) { open(QFile::encodeName(path), kind); }
@@ -53,14 +62,39 @@ public:
         m_kind = kind;
         m_state = 1;
         m_truncated = false;
+        m_office->cancel();
         m_text->clear();
         m_text->hide();
         delete m_pdf;
         m_pdf = nullptr;
+        delete m_folder;
+        m_folder = nullptr;
         m_notice->clear();
         m_notice->hide();
         if (kind == 2) {
             openPdf(path);
+            return;
+        }
+        if (kind == 3) {
+            if (!pdfFactory()) { pdfUnavailable(); return; }
+            m_state = 0;
+            m_notice->setText("Generando vista previa con LibreOffice…");
+            m_notice->show();
+            m_office->open(path);
+            return;
+        }
+        if (kind == 4) {
+            const int descriptor = ::open(path.constData(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NONBLOCK);
+            if (descriptor < 0) { fail(QString::fromLocal8Bit(std::strerror(errno))); return; }
+            ::close(descriptor);
+            const QString directory = QFile::decodeName(path);
+            if (QFile::encodeName(directory) != path) {
+                fail("La vista previa de carpetas requiere un nombre compatible con UTF-8.");
+                return;
+            }
+            m_folder = new FolderView(directory, this);
+            layout()->addWidget(m_folder);
+            m_folder->show();
             return;
         }
         QFile file;
@@ -101,20 +135,29 @@ public:
 
     void reset()
     {
+        m_office->cancel();
         m_path.clear();
         m_text->clear();
         delete m_pdf;
         m_pdf = nullptr;
+        delete m_folder;
+        m_folder = nullptr;
         hide();
     }
 
-    uint32_t state() const { return m_pdf ? m_pdf->property("quicklookState").toUInt() : m_state; }
+    uint32_t state() const {
+        if (m_folder) { return m_folder->property("quicklookState").toUInt(); }
+        return m_pdf ? m_pdf->property("quicklookState").toUInt() : m_state;
+    }
     bool truncated() const { return m_truncated; }
     QString error() const { return m_pdf ? m_pdf->property("quicklookError").toString() : m_state == 2 ? m_notice->text() : QString(); }
     int pageCount() const { return m_pdf ? m_pdf->property("quicklookPages").toInt() : 0; }
+    int entryCount() const { return m_folder ? m_folder->property("quicklookEntries").toInt() : 0; }
 
 private:
-    void openPdf(const QByteArray &path)
+    using Factory = QWidget *(*)(const QByteArray &, QWidget *);
+
+    Factory pdfFactory()
     {
         if (!m_pdfLibrary || !m_pdfLibrary->isLoaded()) {
             // El menú puede invocar ~/.local/bin/quicklook como enlace a /usr/bin.
@@ -129,12 +172,19 @@ private:
                 if (m_pdfLibrary->load()) { break; }
             }
         }
-        using Factory = QWidget *(*)(const QByteArray &, QWidget *);
-        const auto create = reinterpret_cast<Factory>(m_pdfLibrary->resolve("ql_pdf_create"));
-        if (!create) {
-            fail("PDF no disponible. Se necesita el módulo PDF de Quick Look y Qt PDF (qt6-webengine en Arch). Imágenes y texto siguen disponibles.");
-            return;
-        }
+        return reinterpret_cast<Factory>(m_pdfLibrary->resolve("ql_pdf_create"));
+    }
+
+    void pdfUnavailable()
+    {
+        fail("PDF no disponible. Se necesita el módulo PDF de Quick Look y Qt PDF (qt6-webengine en Arch). Imágenes, texto y carpetas siguen disponibles.");
+    }
+
+    void openPdf(const QByteArray &path)
+    {
+        const auto create = pdfFactory();
+        if (!create) { pdfUnavailable(); return; }
+        m_state = 1;
         m_pdf = create(path, this);
         layout()->addWidget(m_pdf);
         m_pdf->show();
@@ -145,11 +195,14 @@ private:
         m_state = 2;
         m_notice->setText(message);
         m_notice->show();
+        setProperty("quicklookState", m_state);
     }
 
     QLabel *m_notice;
     QPlainTextEdit *m_text;
     QWidget *m_pdf = nullptr;
+    FolderView *m_folder = nullptr;
+    OfficeConverter *m_office;
     std::unique_ptr<QLibrary> m_pdfLibrary;
     QByteArray m_path;
     uint32_t m_kind = 0, m_state = 1;

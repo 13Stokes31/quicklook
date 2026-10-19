@@ -3,11 +3,264 @@
 #include <QPainter>
 #include <QPdfWriter>
 #include <QTest>
+#include <QSignalSpy>
+#include <QStandardPaths>
+#include <QElapsedTimer>
+
+// Conversor controlado: permite probar cancelación, fallos y caché sin imponer
+// LibreOffice a quien ejecuta las pruebas de imágenes/texto/PDF/carpetas.
+class ConverterFixture
+{
+public:
+    QTemporaryDir directory;
+    QByteArray originalPath = qgetenv("PATH");
+
+    ConverterFixture()
+    {
+        const QString root = directory.path();
+        QDir().mkpath(root + "/bin");
+        QFile script(root + "/bin/libreoffice");
+        if (!script.open(QIODevice::WriteOnly)) { return; }
+        script.write(R"(#!/usr/bin/python3
+from pathlib import Path
+import json, shutil, subprocess, sys, time
+root = Path(__file__).resolve().parent.parent
+input = Path(sys.argv[-1])
+out = Path(sys.argv[sys.argv.index('--outdir') + 1])
+profile = next(a.split('=', 1)[1] for a in sys.argv if a.startswith('-env:UserInstallation='))
+with (root / 'calls').open('a') as calls:
+    calls.write(json.dumps({'input': input.name, 'profile': profile}) + '\n')
+(root / 'settings').write_bytes((out / 'profile/user/registrymodifications.xcu').read_bytes())
+content = input.read_bytes()
+if content.startswith(b'slow'):
+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+    (root / 'child').write_text(str(child.pid))
+    time.sleep(30)
+elif content.startswith(b'bad'):
+    sys.exit(0)
+else:
+    shutil.copyfile(root / 'template.pdf', out / 'input.pdf')
+)");
+        script.close();
+        script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        {
+            QPdfWriter writer(root + "/template.pdf");
+            QPainter painter(&writer);
+            painter.drawText(100, 200, "Office preview");
+        }
+        qputenv("PATH", QFile::encodeName(root + "/bin") + ':' + originalPath);
+    }
+
+    ~ConverterFixture() { qputenv("PATH", originalPath); }
+
+    QString input(const QByteArray &bytes = "normal")
+    {
+        const QString path = directory.filePath("original ;$(literal).docx");
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) { return {}; }
+        file.write(bytes);
+        return path;
+    }
+
+    int calls() const
+    {
+        QFile file(directory.filePath("calls"));
+        return file.open(QIODevice::ReadOnly) ? file.readAll().count('\n') : 0;
+    }
+};
 
 class Documents final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void folderShowsOnlyDirectContents()
+    {
+        QTemporaryDir dir;
+        QVERIFY(QDir().mkpath(dir.filePath("subfolder/deeper")));
+        for (const QString &name : {QString("file.txt"), QString(".hidden"), QString("subfolder/inside.txt")}) {
+            QFile file(dir.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("content");
+        }
+        QVERIFY(QFile::link(dir.path(), dir.filePath("loop")));
+        DocumentView view(Qt::white, nullptr);
+        view.resize(700, 500);
+        view.show();
+        view.open(dir.path(), 4);
+        auto *tree = view.findChild<QTreeView *>("quicklook-folder");
+        QVERIFY(tree);
+        auto *model = qobject_cast<QFileSystemModel *>(tree->model());
+        QVERIFY(model && model->isReadOnly());
+        QSignalSpy loaded(model, &QFileSystemModel::directoryLoaded);
+        QTRY_COMPARE(view.state(), 1u);
+        QCOMPARE(view.entryCount(), 4);
+        QCOMPARE(model->rowCount(tree->rootIndex()), 4);
+        QVERIFY(!tree->itemsExpandable());
+        QCOMPARE(tree->editTriggers(), QAbstractItemView::NoEditTriggers);
+        const QModelIndex child = model->index(dir.filePath("subfolder"));
+        QCOMPARE(model->rowCount(child), 0);
+        QTest::mouseDClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, tree->visualRect(child).center());
+        QTest::qWait(100);
+        QVERIFY(!tree->isExpanded(child));
+        QCOMPARE(model->rowCount(child), 0);
+        for (const auto &signal : loaded) { QCOMPARE(signal.front().toString(), dir.path()); }
+        view.reset();
+        QVERIFY(!view.findChild<QTreeView *>());
+    }
+
+    void emptyFolderAndFolderErrors()
+    {
+        QTemporaryDir dir;
+        DocumentView view(Qt::white, nullptr);
+        view.open(dir.path(), 4);
+        QTRY_COMPARE(view.state(), 1u);
+        QCOMPARE(view.entryCount(), 0);
+        view.open(dir.filePath("missing"), 4);
+        QCOMPARE(view.state(), 2u);
+        QVERIFY(!view.error().isEmpty());
+    }
+
+    void officeConversionCacheAndChanges()
+    {
+        ConverterFixture fixture;
+        OfficeConverter converter;
+        QSignalSpy ready(&converter, &OfficeConverter::converted);
+        QSignalSpy failed(&converter, &OfficeConverter::failed);
+        const QString path = fixture.input();
+        converter.open(QFile::encodeName(path));
+        QTRY_COMPARE(ready.count(), 1);
+        QCOMPARE(failed.count(), 0);
+        QCOMPARE(fixture.calls(), 1);
+        const QString pdf = ready.front().front().toString();
+        QVERIFY(QFileInfo::exists(pdf));
+        QFile settings(fixture.directory.filePath("settings"));
+        QVERIFY(settings.open(QIODevice::ReadOnly));
+        const QByteArray registry = settings.readAll();
+        QVERIFY(registry.contains("DisableMacrosExecution"));
+        QVERIFY(registry.contains("<value>true</value>"));
+        QVERIFY(registry.contains("<value>3</value>"));
+        converter.open(QFile::encodeName(path));
+        QCOMPARE(ready.count(), 2);
+        QCOMPARE(fixture.calls(), 1);
+        QCOMPARE(ready.back().front().toString(), pdf);
+        QCOMPARE(fixture.input("changed document"), path);
+        converter.open(QFile::encodeName(path));
+        QTRY_COMPARE(ready.count(), 3);
+        QCOMPARE(fixture.calls(), 2);
+        QVERIFY(ready.back().front().toString() != pdf);
+        QFile source(path);
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), QByteArray("changed document"));
+    }
+
+    void officeCancellationKillsDescendants()
+    {
+        ConverterFixture fixture;
+        OfficeConverter converter;
+        QSignalSpy ready(&converter, &OfficeConverter::converted);
+        QSignalSpy failed(&converter, &OfficeConverter::failed);
+        converter.open(QFile::encodeName(fixture.input("slow")));
+        const QString childFile = fixture.directory.filePath("child");
+        QTRY_VERIFY(QFileInfo::exists(childFile));
+        QFile child(childFile);
+        QVERIFY(child.open(QIODevice::ReadOnly));
+        const qint64 pid = child.readAll().toLongLong();
+        QVERIFY(pid > 0);
+        converter.cancel();
+        auto exited = [pid] {
+            QFile status(QString("/proc/%1/stat").arg(pid));
+            if (!status.open(QIODevice::ReadOnly)) { return true; }
+            const auto data = status.readAll();
+            return data.mid(data.lastIndexOf(')') + 2, 1) == "Z";
+        };
+        QTRY_VERIFY(exited());
+        QTest::qWait(100);
+        QCOMPARE(ready.count(), 0);
+        QCOMPARE(failed.count(), 0);
+    }
+
+    void officeRejectsOversizedAndNonRegularFiles()
+    {
+        ConverterFixture fixture;
+        OfficeConverter converter;
+        QSignalSpy failed(&converter, &OfficeConverter::failed);
+        const QString path = fixture.directory.filePath("large.docx");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.resize(OfficeConverter::FileLimit + 1));
+        file.close();
+        converter.open(QFile::encodeName(path));
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(failed.back().front().toString().contains("64 MiB"));
+        const QByteArray fifo = QFile::encodeName(fixture.directory.filePath("pipe.docx"));
+        QCOMPARE(::mkfifo(fifo.constData(), 0600), 0);
+        converter.open(fifo);
+        QCOMPARE(failed.count(), 2);
+        QCOMPARE(fixture.calls(), 0);
+    }
+
+    void officeFailuresAndTimeoutKeepOtherViewsUsable()
+    {
+        ConverterFixture fixture;
+        OfficeConverter converter(nullptr, 500);
+        QSignalSpy failed(&converter, &OfficeConverter::failed);
+        converter.open(QFile::encodeName(fixture.input("bad")));
+        QTRY_COMPARE(failed.count(), 1);
+        converter.open(QFile::encodeName(fixture.input("slow")));
+        QTRY_COMPARE(failed.count(), 2);
+        QVERIFY(failed.back().front().toString().contains("tiempo límite"));
+        qputenv("PATH", QFile::encodeName(fixture.directory.path()));
+        converter.open(QFile::encodeName(fixture.input()));
+        QCOMPARE(failed.count(), 3);
+        QVERIFY(failed.back().front().toString().contains("LibreOffice"));
+        DocumentView view(Qt::white, nullptr);
+        view.open(fixture.directory.path(), 4);
+        QTRY_COMPARE(view.state(), 1u);
+    }
+
+#ifdef QUICKLOOK_TEST_PDF
+    void officeUsesPdfViewAndRecoversOnNavigation()
+    {
+        ConverterFixture fixture;
+        DocumentView view(Qt::white, nullptr);
+        view.open(fixture.input(), 3);
+        QCOMPARE(view.state(), 0u);
+        QTRY_COMPARE(view.state(), 1u);
+        QCOMPARE(view.pageCount(), 1);
+        QVERIFY(view.findChild<QWidget *>("quicklook-pdf-pages"));
+        view.open(fixture.directory.path(), 4);
+        QTRY_COMPARE(view.state(), 1u);
+        QVERIFY(!view.findChild<QWidget *>("quicklook-pdf-pages"));
+        QCOMPARE(fixture.input("slow"), fixture.directory.filePath("original ;$(literal).docx"));
+        view.open(fixture.directory.filePath("original ;$(literal).docx"), 3);
+        view.open(fixture.directory.path(), 4);
+        QTRY_COMPARE(view.state(), 1u);
+        QVERIFY(!view.findChild<QWidget *>("quicklook-pdf-pages"));
+    }
+
+    void officeRealFormats()
+    {
+        const QString fixtures = qEnvironmentVariable("QUICKLOOK_OFFICE_FIXTURES");
+        if (fixtures.isEmpty()) { QSKIP("Prueba real opcional: configurar QUICKLOOK_OFFICE_FIXTURES con los seis formatos."); }
+        QVERIFY(!QStandardPaths::findExecutable("libreoffice").isEmpty());
+        DocumentView view(Qt::white, nullptr);
+        view.resize(700, 500);
+        view.show();
+        for (const QString &name : {QString("text.odt"), QString("text.doc"), QString("text.docx"),
+                 QString("sheet.ods"), QString("sheet.xls"), QString("sheet.xlsx")}) {
+            const QString path = QDir(fixtures).filePath(name);
+            QVERIFY2(QFileInfo::exists(path), qPrintable(path));
+            QElapsedTimer elapsed;
+            elapsed.start();
+            view.open(path, 3);
+            QTRY_COMPARE_WITH_TIMEOUT(view.state(), 1u, 65000);
+            QCOMPARE(view.pageCount(), 1);
+            QVERIFY(view.findChild<QWidget *>("quicklook-pdf-pages"));
+            qInfo() << "Office real:" << name << elapsed.elapsed() << "ms";
+        }
+    }
+#endif
+
     void textIsLiteralAndReadOnly()
     {
         QTemporaryDir dir;

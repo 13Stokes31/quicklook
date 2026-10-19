@@ -91,7 +91,7 @@ protected:
         // Los lectores de documentos reciben foco para seleccionar/copiar y
         // desplazarse; los controles comunes siguen funcionando dentro de ellos.
         auto *widget = qobject_cast<QWidget *>(object);
-        if (widget && m_document && m_document->isAncestorOf(widget) && event->type() == QEvent::DynamicPropertyChange
+        if (widget && m_document && (widget == m_document || m_document->isAncestorOf(widget)) && event->type() == QEvent::DynamicPropertyChange
             && static_cast<QDynamicPropertyChangeEvent *>(event)->propertyName() == "quicklookState") {
             QTimer::singleShot(0, this, &Preview::synchronize);
         }
@@ -291,9 +291,11 @@ private:
     {
         const bool document = ql_kind(m_backend.get()) != 0;
         const QJsonObject report{{"title", windowTitle()}, {"state", int(document && m_document ? m_document->state() : ql_state(m_backend.get()))},
-            {"kind", ql_kind(m_backend.get()) == 2 ? "pdf" : document ? "text" : "image"},
+            {"kind", ql_kind(m_backend.get()) == 4 ? "folder" : ql_kind(m_backend.get()) == 3 ? "office"
+                : ql_kind(m_backend.get()) == 2 ? "pdf" : document ? "text" : "image"},
             {"text_truncated", document && m_document && m_document->truncated()},
             {"pdf_pages", document && m_document ? m_document->pageCount() : 0},
+            {"folder_entries", document && m_document ? m_document->entryCount() : 0},
             {"frame_width", width()}, {"frame_height", height()}, {"device_pixel_ratio", devicePixelRatioF()},
             {"screen_width", screen()->geometry().width()}, {"screen_height", screen()->geometry().height()},
             {"image_x", m_imageRect.x()}, {"image_y", m_imageRect.y()},
@@ -335,7 +337,7 @@ int main(int argc, char **argv)
         if (!literal && arg == "--report") { report = true; continue; }
         if (!literal && arg == "--choose-image") { choose = true; continue; }
         if (!literal && (arg == "--help" || arg == "-h")) {
-            QTextStream(stdout) << "uso: quicklook-qt [--solid] [--] archivo\nFlechas: navegar. Escape/Espacio o perder el foco: cerrar.\n";
+            QTextStream(stdout) << "uso: quicklook-qt [--solid] [--] archivo-o-carpeta\nFlechas: navegar. Escape/Espacio o perder el foco: cerrar.\n";
             return 0;
         }
         if (!path.isEmpty()) { QTextStream(stderr) << "Indica un único archivo.\n"; return 1; }

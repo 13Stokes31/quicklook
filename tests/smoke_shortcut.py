@@ -84,7 +84,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/qt-build/quicklook-qt")
-    parser.add_argument("--kind", choices=("image", "text", "pdf"), default="image")
+    parser.add_argument("--kind", choices=("image", "text", "pdf", "folder"), default="image")
     args = parser.parse_args()
     if args.session:
         session(args.session)
@@ -97,8 +97,14 @@ def main():
             png(work / "images/foto prueba.png", [0, 255, 0], 400, 300)
         elif args.kind == "text":
             (work / "images/texto prueba.md").write_text("# Texto literal\nPrueba con acentos.\n")
-        else:
+        elif args.kind == "pdf":
             pdf(work / "images/documento prueba.pdf")
+        else:
+            folder = work / "images/carpeta prueba"
+            folder.mkdir()
+            (folder / "directo.txt").write_text("Solo contenido directo.\n")
+            (folder / "subcarpeta").mkdir()
+            (folder / "subcarpeta/no recorrer.txt").write_text("Contenido anidado.\n")
         menu = work / "data/kio/servicemenus/quicklook.desktop"
         menu.write_bytes(subprocess.check_output([sys.executable, str(ROOT / "integration/prepare-menu.py"),
             str(args.binary.absolute())]))

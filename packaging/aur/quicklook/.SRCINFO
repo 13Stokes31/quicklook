@@ -1,6 +1,6 @@
 pkgbase = quicklook
-	pkgdesc = Quick Look image, text and PDF preview for KDE Plasma 6 with optional soft blur
-	pkgver = 0.3.0
+	pkgdesc = Quick Look image, document and folder preview for KDE Plasma 6 with optional soft blur
+	pkgver = 0.4.0
 	pkgrel = 1
 	url = https://github.com/13Stokes31/quicklook
 	install = quicklook.install
@@ -25,7 +25,8 @@ pkgbase = quicklook
 	depends = kwindowsystem
 	depends = libglvnd
 	optdepends = dolphin: file manager service menu and Space shortcut (26.04+)
-	optdepends = qt6-webengine: optional PDF preview module
+	optdepends = qt6-webengine: optional PDF and Office preview module
+	optdepends = libreoffice: optional ODT/DOC/DOCX/ODS/XLS/XLSX preview via PDF
 	optdepends = kwin: window centering and blur
 	optdepends = qt6-declarative: optional KWin soft blur module
 	optdepends = libepoxy: optional KWin soft blur module
@@ -33,7 +34,7 @@ pkgbase = quicklook
 	conflicts = quicklook-bin
 	options = !debug
 	options = !lto
-	source = quicklook-0.3.0.tar.gz::https://github.com/13Stokes31/quicklook/releases/download/v0.3.0/quicklook-0.3.0-source.tar.gz
+	source = quicklook-0.4.0.tar.gz::https://github.com/13Stokes31/quicklook/releases/download/v0.4.0/quicklook-0.4.0-source.tar.gz
 	sha256sums = e83f418b77a0602624db31b124f8648de43b960215673b71550a4b3b00da92a1
 
 pkgname = quicklook

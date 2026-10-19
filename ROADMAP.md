@@ -4,12 +4,10 @@
 
 - [ ] Validación manual de texto y PDF en Plasma Wayland, temas claro/oscuro y
   escalado fraccionario. Los pasos están en TESTING.md.
-- [ ] Añadir vista previa de ODT, DOC, DOCX, ODS, XLS y XLSX. La conversión con
-  LibreOffice a PDF se ha probado con archivos sintéticos de los seis formatos
-  (aproximadamente 2–3 segundos por conversión en este equipo). Falta autorizar
-  LibreOffice como dependencia opcional e integrar conversión asíncrona,
-  cancelación y reutilización de resultados. Revisar la paginación de hojas
-  anchas y la fidelidad de documentos complejos antes de publicarlo.
+- [ ] Validar la ampliación 0.4.0: ODT, DOC, DOCX, ODS, XLS y XLSX mediante
+  LibreOffice opcional, autorizado el 19 de octubre de 2026; y carpetas con
+  contenido directo, sin expandir ni recorrer subcarpetas. Revisar la paginación
+  de hojas anchas y la fidelidad de documentos complejos con los pasos de TESTING.md.
 - [ ] Valorar audio/vídeo y miniaturas KIO para otros documentos después de
   verificar el uso de texto y PDF. No incorporar la suite Plasma Fusion como
   dependencia: su visor sirve como referencia, pero nuestra interfaz mantiene
@@ -21,6 +19,45 @@
   de fuentes. La solicitud de adopción PRQ#88354 fue rechazada y la entrada
   antigua eliminada el 19 de octubre de 2026. La distribución disponible utiliza
   `quicklook-bin`; no restaurar la herramienta retirada sin acuerdo con AUR.
+
+## Punto de continuación: trabajo pausado el 19 de octubre de 2026
+
+- Rama `wip/office-folders`: ampliación 0.4.0 en desarrollo. La versión instalada
+  sigue siendo `quicklook-bin 0.3.0-1`; no se ha instalado ni publicado 0.4.0.
+- Implementados el conversor Office asíncrono con perfil privado, macros
+  desactivadas, cancelación de su grupo de procesos, límite de 64 MiB y
+  reutilización de la última conversión; y el listado Qt de carpetas de solo
+  lectura, incluidos ocultos, sin expansión ni exploración de subcarpetas.
+- Comprobado: 48 pruebas Rust del código nuevo (antes de cambiar solo la versión
+  del paquete de 0.3.0 a 0.4.0); CTest de documentos con conversor controlado;
+  carpetas vacías, contenido directo, enlace circular, cancelación, caché y
+  errores. También imagen/texto/PDF en X11 y Espacio sobre carpeta en Dolphin,
+  siempre en perfiles privados.
+- Wayland privado: texto, PDF, imagen, carpeta y DOCX real, contenido 85 %,
+  marco 90 %, blur nativo/opaco y cierre con foco dentro del contenido.
+  Informes y capturas en `target/qt-wayland-software-1/`; las capturas de carpeta
+  y Office se han inspeccionado. Esto no sustituye las pruebas manuales del perfil.
+- Pendiente: completar la compilación Rust 0.4.0 y Clippy, interrumpidos para
+  pausar. Volver a enlazar Qt contra el núcleo final: `make build`; configurar
+  `QUICKLOOK_BUILD_TESTS=ON` y ejecutar CTest. Comprobar también sin módulo PDF.
+- Repetir `officeRealFormats` con
+  `QUICKLOOK_OFFICE_FIXTURES=/home/stokes/Proyectos/quicklook/target/office-format-probe/converted`.
+  Contiene los seis documentos sintéticos. La primera prueba real de ODT llegó
+  a listo en unos 35 segundos, superando su espera de 30; la espera de prueba
+  se amplió a 65 segundos y está compilada, pero falta repetir los seis formatos
+  integrados y revisar esa demora. La conversión CLI previa de los seis formatos
+  tardó 2–3 segundos por archivo; no confundirla con el rendimiento del visor.
+- Falta un generador de fixtures reproducible para esta comprobación real. Los
+  datos convertidos y los prototipos están en `target/` (ignorado por Git); las
+  semillas FODT/FODS están guardadas en `tests/fixtures/office/`.
+- Antes de empaquetar: regenerar archivos de publicación 0.4.0 y sus SHA256.
+  Las recetas ya indican 0.4.0 y LibreOffice opcional, pero aún conservan las
+  huellas de 0.3.0. **No publicarlas ni usarlas para instalar en este estado.**
+  Actualizar las huellas y `.SRCINFO`, validar el paquete e instalarlo por el
+  procedimiento controlado que omite hooks globales y preserva Dolphin/KWin.
+  Ampliar también los MIME del menú personal existente para Office y carpetas.
+  Los scripts y respaldos anteriores están en `target/upgrade-0.3.0*`.
+- No se ha tocado Ansible ni se ha adaptado el módulo de blur de KWin.
 
 ## Pendientes previos
 

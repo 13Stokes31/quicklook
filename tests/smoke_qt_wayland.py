@@ -47,7 +47,7 @@ def documents_session(work, destination, env, server, dbus, log):
                         item = json.loads(line)
                         if item["title"] == name + " — Quick Look" and item["kind"] == kind and item["state"] == 1 and item["blur_mode"] == blur:
                             return item
-                value = wait(check, viewer)
+                value = wait(check, viewer, timeout=65 if kind == "office" else 15)
                 assert value["frame_width"] == round(value["screen_width"] * 0.9), value
                 assert value["frame_height"] == round(value["screen_height"] * 0.9), value
                 assert value["image_width"] <= value["screen_width"] * 0.85 + 1, value
@@ -56,11 +56,15 @@ def documents_session(work, destination, env, server, dbus, log):
                     assert abs(value["image_width"] - value["screen_width"] * 0.85) <= 1, value
                     assert abs(value["image_height"] - value["screen_height"] * 0.85) <= 1, value
                 if kind == "pdf": assert value["pdf_pages"] == 2, value
+                if kind == "folder": assert value["folder_entries"] == 2, value
+                if kind == "office": assert value["pdf_pages"] == 1, value
                 reports.append(value)
                 return value
 
             def command(value):
+                count = len(report_path.read_text().splitlines())
                 viewer.stdin.write((value + "\n").encode()); viewer.stdin.flush()
+                return count
 
             def capture(name):
                 subprocess.run(["spectacle", "--background", "--nonotify", "--fullscreen", "--output",
@@ -81,8 +85,17 @@ def documents_session(work, destination, env, server, dbus, log):
             command("content-space")
             assert viewer.wait(timeout=5) == 0
             viewer = None
+            viewer = subprocess.Popen([str(work / "qt-controls"), str(work / "documents/4 carpeta")],
+                env=env, stdin=subprocess.PIPE, stdout=output, stderr=log)
+            ready("4 carpeta", "folder"); capture("qt-documento-carpeta")
+            if (work / "documents/5 documento.docx").exists():
+                command("content-next"); ready("5 documento.docx", "office"); capture("qt-documento-office")
+                count = command("previous"); ready("4 carpeta", "folder", after=count)
+            command("content-space")
+            assert viewer.wait(timeout=5) == 0
+            viewer = None
         (destination / "documentos.json").write_text(json.dumps(reports, indent=2) + "\n")
-        print("Texto → PDF → imagen, contenido al 85 %, marco al 90 %, blur nativo → opaco → nativo y Espacio dentro del PDF: OK", flush=True)
+        print("Texto, PDF, imagen y carpeta directa, contenido al 85 %, marco al 90 %, blur nativo → opaco → nativo y Espacio dentro del contenido: OK", flush=True)
     finally:
         if viewer is not None and viewer.poll() is None:
             viewer.terminate(); viewer.wait(timeout=5)
@@ -291,9 +304,11 @@ def main():
         host = display if display.startswith("/") else str(Path(os.environ["XDG_RUNTIME_DIR"]) / display)
     with tempfile.TemporaryDirectory(prefix="q-", dir=ROOT / "target") as directory:
         work = Path(directory)
-        flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "Qt6Test", "Qt6Widgets", "Qt6DBus", "KF6WindowSystem"], text=True).split()
+        flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "Qt6Test", "Qt6Widgets", "Qt6DBus", "Qt6Concurrent", "KF6WindowSystem"], text=True).split()
         subprocess.run(["c++", "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
             str(ROOT / "tests/qt_controls.cpp"), "-I" + str(ROOT / "target/qt-build/quicklook-qt_autogen/include"),
+            str(ROOT / "target/qt-build/quicklook-qt_autogen/mocs_compilation.cpp"),
+            str(ROOT / "qt/officeconverter.cpp"),
             str(ROOT / "target/release/libquicklook_core.a"), *flags, "-ldl", "-lpthread", "-lm",
             "-o", str(work / "qt-controls")], check=True)
         subprocess.run(["c++", "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror", "-fPIC",
@@ -319,6 +334,13 @@ def main():
         (work / "documents/1 notas.md").write_text("# Texto literal\nPrueba de lectura y selección.\n" * 50)
         pdf(work / "documents/2 documento.pdf")
         png(work / "documents/3 imagen.png", [0, 0, 255], 1200, 600)
+        folder = work / "documents/4 carpeta"
+        (folder / "subcarpeta").mkdir(parents=True)
+        (folder / "directo.txt").write_text("Contenido directo.\n")
+        (folder / "subcarpeta/anidado.txt").write_text("No se debe recorrer.\n")
+        office_fixtures = os.environ.get("QUICKLOOK_OFFICE_FIXTURES")
+        if office_fixtures:
+            shutil.copy2(Path(office_fixtures) / "text.docx", work / "documents/5 documento.docx")
         def chunk(kind, value):
             return struct.pack(">I", len(value)) + kind + value + struct.pack(">I", zlib.crc32(kind + value))
         rows = (b"\0" + bytes([255, 0, 0, 128]) * 200) * 400

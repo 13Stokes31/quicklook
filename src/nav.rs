@@ -1,6 +1,6 @@
 //! Navegación por el directorio contenedor.
 //!
-//! Lista los archivos de imagen (y opcionalmente texto/PDF) de la carpeta, en el mismo
+//! Lista imágenes y, opcionalmente, documentos y carpetas, en el mismo
 //! orden natural que usa Dolphin (`foto2` antes que `foto10`), y mantiene el
 //! índice del que se muestra. Listar nombres es barato; no decodifica nada.
 
@@ -15,48 +15,58 @@ pub(crate) fn is_image(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+pub(crate) fn is_office(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| {
+        ["odt", "doc", "docx", "ods", "xls", "xlsx"]
+            .iter()
+            .any(|known| ext.eq_ignore_ascii_case(known))
+    })
+}
+
 fn is_document(path: &Path) -> bool {
     let extension = path
         .extension()
         .unwrap_or_default()
         .to_string_lossy()
         .to_ascii_lowercase();
-    matches!(
-        extension.as_str(),
-        "pdf"
-            | "txt"
-            | "md"
-            | "markdown"
-            | "log"
-            | "csv"
-            | "tsv"
-            | "json"
-            | "jsonl"
-            | "yaml"
-            | "yml"
-            | "toml"
-            | "ini"
-            | "conf"
-            | "cfg"
-            | "xml"
-            | "html"
-            | "htm"
-            | "css"
-            | "js"
-            | "ts"
-            | "rs"
-            | "py"
-            | "sh"
-            | "c"
-            | "h"
-            | "cpp"
-            | "hpp"
-            | "sql"
-            | "desktop"
-    ) || matches!(
-        path.file_name().and_then(|name| name.to_str()),
-        Some("README" | "LICENSE" | "Makefile" | "Dockerfile")
-    )
+    is_office(path)
+        || matches!(
+            extension.as_str(),
+            "pdf"
+                | "txt"
+                | "md"
+                | "markdown"
+                | "log"
+                | "csv"
+                | "tsv"
+                | "json"
+                | "jsonl"
+                | "yaml"
+                | "yml"
+                | "toml"
+                | "ini"
+                | "conf"
+                | "cfg"
+                | "xml"
+                | "html"
+                | "htm"
+                | "css"
+                | "js"
+                | "ts"
+                | "rs"
+                | "py"
+                | "sh"
+                | "c"
+                | "h"
+                | "cpp"
+                | "hpp"
+                | "sql"
+                | "desktop"
+        )
+        || matches!(
+            path.file_name().and_then(|name| name.to_str()),
+            Some("README" | "LICENSE" | "Makefile" | "Dockerfile")
+        )
 }
 
 /// Comparación natural de nombres: trata las secuencias de dígitos como números,
@@ -130,7 +140,10 @@ impl Directory {
             .and_then(|p| std::fs::read_dir(p).ok())
             .map(|rd| {
                 rd.filter_map(|e| e.ok().map(|e| e.path()))
-                    .filter(|p| p.is_file() && (is_image(p) || (documents && is_document(p))))
+                    .filter(|p| {
+                        (documents && p.is_dir())
+                            || (p.is_file() && (is_image(p) || (documents && is_document(p))))
+                    })
                     .collect()
             })
             .unwrap_or_default();
@@ -214,6 +227,34 @@ mod tests {
         assert_eq!(extended.current().file_name().unwrap(), "3.pdf");
         assert!(extended.next());
         assert_eq!(extended.current().file_name().unwrap(), "1.png");
+    }
+
+    #[test]
+    fn office_and_folders_are_opt_in_without_descending_into_them() {
+        let dir = TestDir::new();
+        let image = dir.image("1.png", 2, 2);
+        std::fs::write(dir.path.join("2.DOCX"), b"office").unwrap();
+        std::fs::write(dir.path.join("3.ods"), b"office").unwrap();
+        let folder = dir.path.join("4 folder");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(folder.join("nested.png"), b"not enumerated").unwrap();
+        assert!(!Directory::new(image.clone()).next());
+        let mut extended = Directory::with_documents(image);
+        for name in ["2.DOCX", "3.ods", "4 folder", "1.png"] {
+            assert!(extended.next());
+            assert_eq!(extended.current().file_name().unwrap(), name);
+        }
+        for name in [
+            "file.odt",
+            "file.DOC",
+            "file.docx",
+            "file.ODS",
+            "file.xls",
+            "file.xlsx",
+        ] {
+            assert!(is_office(Path::new(name)), "{name}");
+        }
+        assert!(!is_office(Path::new("file.docm")));
     }
 
     #[test]

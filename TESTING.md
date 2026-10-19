@@ -1,6 +1,6 @@
 # Comprobaciones manuales
 
-Comprobaciones de uso real pendientes para la versión 0.3.0 con texto y PDF. Estas
+Comprobaciones de uso real pendientes para la versión 0.4.0. Estas
 comprobaciones complementan las pruebas automáticas descritas en README.md.
 Las pruebas automáticas del paquete instalado no sustituyen esta revisión manual.
 
@@ -23,3 +23,16 @@ Las pruebas automáticas del paquete instalado no sustituyen esta revisión manu
 - [ ] Abrir un PDF real de varias páginas: revisar nitidez del texto, ajuste al
   ancho, comodidad del desplazamiento, indicador de página y blur del margen.
   Probar rueda y AvPág/RePág, incluidas páginas de tamaños distintos.
+- [ ] En Dolphin, seleccionar una carpeta y pulsar Espacio. Comprobar nombres,
+  tamaños de archivos, tipos y fechas, incluidos ocultos. Verificar que las
+  subcarpetas aparecen como entradas, sin expansión con doble clic o teclado,
+  y que no se muestran sus contenidos ni se calculan sus tamaños totales.
+- [ ] Abrir una carpeta vacía y otra con muchos elementos. Comprobar que el
+  listado se carga, permite desplazarse y se cierra con Espacio/Escape.
+- [ ] Abrir documentos reales ODT/DOC/DOCX y ODS/XLS/XLSX con tablas, imágenes y
+  distintas fuentes. Revisar fidelidad del PDF y paginación de hojas anchas.
+- [ ] Con LibreOffice ya abierto, lanzar una vista previa de Office y comprobar
+  que no cambia sus ventanas ni el documento original. Cambiar de archivo
+  durante la conversión, cerrar y reabrir; comprobar que el visor responde.
+- [ ] Con una dependencia opcional ausente, comprobar que Office muestra el
+  aviso correspondiente y que imágenes, texto y carpetas siguen disponibles.
