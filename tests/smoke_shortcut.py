@@ -101,7 +101,7 @@ def main():
             pdf(work / "images/documento prueba.pdf")
         menu = work / "data/kio/servicemenus/quicklook.desktop"
         menu.write_bytes(subprocess.check_output([sys.executable, str(ROOT / "integration/prepare-menu.py"),
-            str(args.binary.resolve())]))
+            str(args.binary.absolute())]))
         menu.chmod(0o755)
         env = os.environ.copy()
         env.update(XDG_CONFIG_HOME=str(work / "config"), XDG_DATA_HOME=str(work / "data"),

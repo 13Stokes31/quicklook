@@ -7,6 +7,7 @@
 #include <memory>
 
 #include <QFile>
+#include <QFileInfo>
 #include <QCoreApplication>
 #include <QFontDatabase>
 #include <QLabel>
@@ -116,8 +117,11 @@ private:
     void openPdf(const QByteArray &path)
     {
         if (!m_pdfLibrary || !m_pdfLibrary->isLoaded()) {
-            for (const QString &directory : {QCoreApplication::applicationDirPath(),
-                     QCoreApplication::applicationDirPath() + "/../lib/quicklook"}) {
+            // El menú puede invocar ~/.local/bin/quicklook como enlace a /usr/bin.
+            // Buscar respecto al ejecutable real, no al directorio del enlace.
+            const QString executableDirectory = QFileInfo(QCoreApplication::applicationFilePath()).canonicalPath();
+            for (const QString &directory : {executableDirectory,
+                     executableDirectory + "/../lib/quicklook"}) {
                 m_pdfLibrary = std::make_unique<QLibrary>(directory + "/quicklook-pdf.so");
                 // Qt registra tipos del módulo: conservar el código cargado
                 // hasta que termine el proceso, aunque se cambie de archivo.

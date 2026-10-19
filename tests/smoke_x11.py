@@ -70,10 +70,17 @@ def main():
     parser.add_argument("--pdf", action="store_true", help="Comprueba además el módulo PDF opcional")
     args = parser.parse_args()
     args.documents = args.documents or args.pdf
-    binary = args.binary.resolve()
+    # Conservar los enlaces: el menú personal puede invocar ~/.local/bin/quicklook.
+    binary = args.binary.absolute()
     assert binary.is_file(), "compila primero con cargo build --release --locked"
     with tempfile.TemporaryDirectory(prefix="x11-smoke-", dir=ROOT / "target") as directory:
         work = Path(directory)
+        # Imitar el enlace del menú personal, en otro directorio del ejecutable.
+        # PDF debe localizar su módulo junto al destino real del enlace.
+        launcher = work / "bin/quicklook"
+        launcher.parent.mkdir()
+        launcher.symlink_to(binary)
+        binary = launcher
         for name in ("runtime", "cache", "config", "data"):
             (work / name).mkdir(mode=0o700)
         palette = work / "config/kdeglobals"

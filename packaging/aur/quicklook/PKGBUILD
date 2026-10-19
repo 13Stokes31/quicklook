@@ -18,7 +18,7 @@ conflicts=('quicklook-bin')
 options=('!debug' '!lto')
 install=quicklook.install
 source=("quicklook-$pkgver.tar.gz::$url/releases/download/v$pkgver/quicklook-$pkgver-source.tar.gz")
-sha256sums=('40235b649f477f2e204d1011ae518b3619af5e3da94bcba19fe19c9508faa69c')
+sha256sums=('e83f418b77a0602624db31b124f8648de43b960215673b71550a4b3b00da92a1')
 
 prepare() {
   cd "quicklook-$pkgver"

@@ -15,9 +15,11 @@ No están verificadas en la sesión personal ni en el paquete AUR publicado.
   copiado mantiene los acentos y saltos de línea.
 - [ ] Probar en un monitor con escala fraccionaria: comprobar tamaño de letra,
   selección con el ratón, barras de desplazamiento y distribución del marco.
-- [ ] Cuando se autorice instalar la versión nueva y su menú, seleccionar un
+- [ ] Con la versión nueva instalada y su menú, seleccionar un
   TXT/Markdown y un PDF en Dolphin y abrirlos con Espacio; comprobar que el menú
   aparece también para documentos y conserva los demás atajos configurados.
+- [ ] Repetir la apertura del PDF mediante `~/.local/bin/quicklook` cuando sea
+  un enlace a `/usr/bin/quicklook`: debe cargar el módulo PDF instalado.
 - [ ] Abrir un PDF real de varias páginas: revisar nitidez del texto, ajuste al
   ancho, comodidad del desplazamiento, indicador de página y blur del margen.
   Probar rueda y AvPág/RePág, incluidas páginas de tamaños distintos.
