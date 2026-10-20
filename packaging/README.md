@@ -18,6 +18,10 @@ make build-blur
 python3 packaging/release.py
 ```
 
+Build the native module in a KWin 6.7.5 environment. On newer KWin versions,
+run `make build` and reuse the unchanged, verified 6.7.5 module from the previous
+official release for the binary archive; the viewer uses native blur/opaque fallback.
+
 The script writes deterministic archives under `target/releases/`, without
 modifying the installed application. Source archives omit AUR recipes to avoid
 self-referential checksums. Everything else in the Git index is included.
@@ -32,13 +36,17 @@ XDG_STATE_HOME; it runs only when explicitly invoked by the user.
 
 ## Packaging document previews
 
-Version `0.3.0` adds text and PDF previews. The historical `0.2.0`
+Version `0.3.0` adds text and PDF previews. Version `0.4.0` adds Office documents and direct folder contents. Historical
 release archives remain unchanged. A release with PDF needs `qt6-webengine`
 as a source build dependency and an optional runtime dependency of both packages.
 The PDF module is `usr/lib/quicklook/quicklook-pdf.so`; `make install-files`
 stages it through CMake when enabled. The viewer loads it on demand and keeps
 images/text usable if it cannot load. A build configured without PDF does not
 stage a stale module left by a previous build in the same directory.
+
+Office previews use the optional `libreoffice` virtual package together with
+the PDF module. Qt Concurrent belongs to the existing `qt6-base` dependency;
+folder previews need neither optional dependency.
 
 Validation commands are in README.md. The source recipe runs both the Rust and
 Qt document tests. Package versions, checksums and `.SRCINFO` must refer to the

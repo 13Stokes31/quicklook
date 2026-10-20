@@ -25,6 +25,6 @@ pkgbase = quicklook-bin
 	options = !debug
 	options = !strip
 	source = https://github.com/13Stokes31/quicklook/releases/download/v0.4.0/quicklook-0.4.0-linux-x86_64.tar.gz
-	sha256sums = d71b5207ad490a2ff658e2418cea9184d7f78567507ae952aae824f7a8ca74f1
+	sha256sums = 9e0b1c77af0422fe1ea1833a551c86c7cd75ef83066c429637f4e28a678b47d4
 
 pkgname = quicklook-bin

@@ -6,7 +6,7 @@ la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
 
 Desde la versión **0.3.0** admite también texto y PDF. PDF es opcional y utiliza
 Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
-La versión **0.4.0, en desarrollo**, añade documentos de Office mediante LibreOffice opcional y
+La versión **0.4.0**, añade documentos de Office mediante LibreOffice opcional y
 el contenido directo de carpetas, sin explorar las subcarpetas.
 
 ## Qué hace
@@ -438,6 +438,23 @@ Las pruebas cubren el archivo inicial, filtrado y orden de navegación, expulsi�
 de caché, cola acotada, recuperación tras un archivo inválido, resultados tardíos,
 límites de imagen, transparencia, proporciones extremas y tamaño de ventana.
 Los archivos de prueba se crean dentro de `target/`.
+
+La prueba opcional de Office requiere LibreOffice y el módulo PDF compilado.
+Genera los seis formatos a partir de las semillas FODT/FODS del repositorio, los
+abre con el lector real en un perfil privado y verifica que los originales
+permanecen intactos:
+
+```bash
+python3 tests/smoke_office.py
+# Para comprobar también el atajo de Dolphin y Office en Wayland:
+python3 tests/smoke_office.py --fixtures-only
+python3 tests/smoke_shortcut.py --kind folder
+python3 tests/smoke_shortcut.py --kind office
+QUICKLOOK_OFFICE_FIXTURES="$PWD/target/office-fixtures" python3 tests/smoke_qt_wayland.py --documents-only
+```
+
+La prueba del atajo espera que el contenido esté cargado, incluido el PDF
+generado para Office; abrir una ventana por sí solo no cuenta como éxito.
 
 Si tienes Xvfb, xdotool y libX11, la prueba gráfica aislada comprueba también los
 píxeles de la imagen y del error, la navegación y el cierre:

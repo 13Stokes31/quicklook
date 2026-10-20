@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Dolphin real en Xvfb: Espacio abre la selección y vuelve a cerrar Quick Look."""
 import argparse
+import json
 import os
 from pathlib import Path
 import select
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -58,8 +60,23 @@ def session(work):
             time.sleep(0.3)
             xdo("key", "--window", window, "space")
             preview = wait(lambda: xdo("search", "--onlyvisible", "--name", selected.stem + ".*Quick Look").stdout.strip(), dolphin).splitlines()[-1]
-            assert xdo("getwindowname", preview).stdout.strip() == selected.name + " — Quick Look"
             xdo("windowfocus", "--sync", preview)
+            # Abrir una ventana no demuestra que se haya cargado el documento.
+            # Esperar el estado del visor y, en Office, el PDF convertido.
+            def rendered():
+                report = work / "preview.jsonl"
+                if not report.is_file(): return None
+                for line in reversed(report.read_text().splitlines()):
+                    if not line.startswith("{"): continue
+                    value = json.loads(line)
+                    if value["state"] == 2: raise AssertionError(value)
+                    if value["state"] == 1:
+                        return value
+                return None
+            value = wait(rendered, dolphin, timeout=65 if selected.suffix == ".docx" else 15)
+            assert value["title"] == selected.name + " — Quick Look", value
+            if selected.is_dir(): assert value["folder_entries"] == 2, value
+            if selected.suffix in (".pdf", ".docx"): assert value["pdf_pages"] > 0, value
             xdo("key", "--window", preview, "space")
             wait(lambda: not xdo("search", "--onlyvisible", "--name", selected.stem + ".*Quick Look").stdout.strip(), dolphin)
             xml = ET.parse(work / "data/kxmlgui5/dolphin/dolphinui.rc").getroot()
@@ -67,9 +84,11 @@ def session(work):
             shortcuts = {a.get("name"): a.get("shortcut") for a in xml.findall("ActionProperties/Action")}
             assert shortcuts["servicemenu_quicklook.desktop::quicklookPreview"] == "Space"
             assert shortcuts["toggle_selection_mode"] == ""
-            print(f"Dolphin real: Espacio abre {selected.name} y la cierra; menús conservados: OK", flush=True)
+            print(f"Dolphin real: Espacio abre y carga {selected.name} y la cierra; menús conservados: OK", flush=True)
         except Exception:
             print((work / "session.log").read_text(errors="replace")[-3000:])
+            report = work / "preview.jsonl"
+            if report.is_file(): print(report.read_text(errors="replace")[-3000:])
             raise
         finally:
             if dolphin is not None and dolphin.poll() is None:
@@ -84,7 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/qt-build/quicklook-qt")
-    parser.add_argument("--kind", choices=("image", "text", "pdf", "folder"), default="image")
+    parser.add_argument("--kind", choices=("image", "text", "pdf", "folder", "office"), default="image")
     args = parser.parse_args()
     if args.session:
         session(args.session)
@@ -99,15 +118,26 @@ def main():
             (work / "images/texto prueba.md").write_text("# Texto literal\nPrueba con acentos.\n")
         elif args.kind == "pdf":
             pdf(work / "images/documento prueba.pdf")
-        else:
+        elif args.kind == "folder":
             folder = work / "images/carpeta prueba"
             folder.mkdir()
             (folder / "directo.txt").write_text("Solo contenido directo.\n")
             (folder / "subcarpeta").mkdir()
             (folder / "subcarpeta/no recorrer.txt").write_text("Contenido anidado.\n")
+        else:
+            fixtures = Path(os.environ.get("QUICKLOOK_OFFICE_FIXTURES", str(ROOT / "target/office-fixtures")))
+            if not (fixtures / "text.docx").is_file():
+                parser.error("Genera antes los documentos: python3 tests/smoke_office.py --fixtures-only")
+            shutil.copy2(fixtures / "text.docx", work / "images/documento prueba.docx")
+        launcher = work / "preview"
+        launcher.write_text("#!/usr/bin/python3\nimport os, sys\n"
+            f"fd = os.open({str(work / 'preview.jsonl')!r}, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)\n"
+            "os.dup2(fd, 1)\nos.dup2(fd, 2)\nos.close(fd)\n"
+            f"os.execv({str(args.binary.absolute())!r}, [{str(args.binary.absolute())!r}, '--report', *sys.argv[1:]])\n")
+        launcher.chmod(0o755)
         menu = work / "data/kio/servicemenus/quicklook.desktop"
         menu.write_bytes(subprocess.check_output([sys.executable, str(ROOT / "integration/prepare-menu.py"),
-            str(args.binary.absolute())]))
+            str(launcher)]))
         menu.chmod(0o755)
         env = os.environ.copy()
         env.update(XDG_CONFIG_HOME=str(work / "config"), XDG_DATA_HOME=str(work / "data"),
@@ -118,7 +148,7 @@ def main():
             '<auth>EXTERNAL</auth><policy context="default"><allow send_destination="*"/>'
             '<allow receive_sender="*"/><allow own="*"/></policy></busconfig>')
         subprocess.run(["dbus-run-session", "--config-file=" + str(bus), "--", sys.executable,
-            str(Path(__file__).resolve()), "--session", str(work)], env=env, check=True, timeout=50)
+            str(Path(__file__).resolve()), "--session", str(work)], env=env, check=True, timeout=100)
 
 
 if __name__ == "__main__":
