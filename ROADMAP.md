@@ -9,8 +9,11 @@
   cancelación, caché, límites y listado sin expansión de subcarpetas.
 - [ ] Revisar manualmente documentos complejos y hojas anchas, temas y escalado
   fraccionario con los pasos de TESTING.md.
-- [ ] Publicar 0.4.0 y actualizar el paquete instalado y el menú personal con los
-  MIME de Office y carpetas después de validar los archivos de publicación.
+- [x] Publicar 0.4.0 y actualizar el paquete instalado y el menú personal con los
+  MIME de Office y carpetas (20 de octubre de 2026). Fuentes y binario validados;
+  descargas públicas y SHA256 comprobados. AUR anuncia `quicklook-bin 0.4.0-1`.
+  El atajo y la configuración de KWin se conservan; carpeta y DOCX probados con
+  el ejecutable instalado mediante el enlace del menú, en un Dolphin privado.
 - [ ] Valorar audio/vídeo y miniaturas KIO para otros documentos después de
   verificar el uso de texto y PDF. No incorporar la suite Plasma Fusion como
   dependencia: su visor sirve como referencia, pero nuestra interfaz mantiene
