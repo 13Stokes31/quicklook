@@ -17,18 +17,16 @@
   El atajo y la configuración personal de Dolphin/KWin se conservan.
 - [x] Cabecera más grande y en negrita, aprobada por el usuario en la captura
   de prueba. Se conservan v1.0.0 y sus archivos sin reemplazarlos.
-- [ ] Reanudar después del reinicio solicitado por el usuario el 20 de octubre:
-  descargar sin autenticación los tres archivos de v1.0.1 y contrastarlos con
-  `target/releases/quicklook-1.0.1-SHA256SUMS`. La creación de la publicación
-  terminó correctamente antes de la pausa; su URL es
+- [x] Completar la publicación tras el reinicio (20 de octubre de 2026): los
+  tres archivos de v1.0.1 se descargaron sin autenticación y coinciden con la
+  entrega local; las huellas de fuentes y binario coinciden con SHA256SUMS.
+- [x] Publicar `quicklook-bin 1.0.1-1` en AUR, commit `6d6b429`. La página
+  oficial anuncia esa versión y enlaza al binario publicado; el clon local está
+  sincronizado con `origin/master`. Las primeras consultas RPC aún devolvían
+  0.4.0-1, mientras la página ya reflejaba la actualización.
+  GitHub conserva la etiqueta `v1.0.1` y los tres archivos de la entrega:
   https://github.com/13Stokes31/quicklook/releases/tag/v1.0.1.
-- [ ] Después de verificar las descargas públicas, publicar la receta AUR ya
-  preparada en `target/aur-publish/quicklook-bin`: commit local `6d6b429`,
-  un commit por delante de `origin/master` (`96f96c5`). El árbol está limpio.
-  La publicación de GitHub y AUR fue autorizada antes de la pausa. Usar SSH
-  con `-F /dev/null` para no leer configuración ajena al proyecto. Confirmar
-  finalmente que AUR anuncia `quicklook-bin 1.0.1-1` y registrar el resultado.
-  AUR continúa en 0.4.0-1; no se ha hecho el push de la nueva receta.
+  La verificación pública se conserva en `target/release-public-verification-1.0.1/`.
   El nombre AUR `quicklook` para las fuentes sigue pendiente de resolución.
 - [ ] Revisión visual de la cabecera en los temas y escalas de TESTING.md.
 
@@ -43,7 +41,7 @@
   fraccionario con los pasos de TESTING.md.
 - [x] Publicar 0.4.0 y actualizar el paquete instalado y el menú personal con los
   MIME de Office y carpetas (20 de octubre de 2026). Fuentes y binario validados;
-  descargas públicas y SHA256 comprobados. AUR anuncia `quicklook-bin 0.4.0-1`.
+  descargas públicas y SHA256 comprobados. AUR anunció `quicklook-bin 0.4.0-1`.
   El atajo y la configuración de KWin se conservan; carpeta y DOCX probados con
   el ejecutable instalado mediante el enlace del menú, en un Dolphin privado.
 - [ ] Valorar audio/vídeo y miniaturas KIO para otros documentos después de
