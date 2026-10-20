@@ -1,6 +1,6 @@
 pkgbase = quicklook
 	pkgdesc = Quick Look image, document and folder preview for KDE Plasma 6 with optional soft blur
-	pkgver = 0.4.0
+	pkgver = 1.0.0
 	pkgrel = 1
 	url = https://github.com/13Stokes31/quicklook
 	install = quicklook.install
@@ -34,7 +34,7 @@ pkgbase = quicklook
 	conflicts = quicklook-bin
 	options = !debug
 	options = !lto
-	source = quicklook-0.4.0.tar.gz::https://github.com/13Stokes31/quicklook/releases/download/v0.4.0/quicklook-0.4.0-source.tar.gz
-	sha256sums = a5089057f0dd094c3031b37acd263497be76153aa1a4a51d5707c6095d0c08a0
+	source = quicklook-1.0.0.tar.gz::https://github.com/13Stokes31/quicklook/releases/download/v1.0.0/quicklook-1.0.0-source.tar.gz
+	sha256sums = b0fefa4bd7544a188e66f2b091d1d0bf72304b6f4b7eff0fc54601956f43ae2a
 
 pkgname = quicklook

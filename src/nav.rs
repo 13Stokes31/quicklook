@@ -1,6 +1,6 @@
 //! Navegación por el directorio contenedor.
 //!
-//! Lista imágenes y, opcionalmente, documentos y carpetas, en el mismo
+//! Lista imágenes o, en la interfaz Qt, archivos y carpetas, en el mismo
 //! orden natural que usa Dolphin (`foto2` antes que `foto10`), y mantiene el
 //! índice del que se muestra. Listar nombres es barato; no decodifica nada.
 
@@ -15,58 +15,13 @@ pub(crate) fn is_image(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)] // Solo la interfaz Qt admite documentos Office.
 pub(crate) fn is_office(path: &Path) -> bool {
     path.extension().is_some_and(|ext| {
         ["odt", "doc", "docx", "ods", "xls", "xlsx"]
             .iter()
             .any(|known| ext.eq_ignore_ascii_case(known))
     })
-}
-
-fn is_document(path: &Path) -> bool {
-    let extension = path
-        .extension()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .to_ascii_lowercase();
-    is_office(path)
-        || matches!(
-            extension.as_str(),
-            "pdf"
-                | "txt"
-                | "md"
-                | "markdown"
-                | "log"
-                | "csv"
-                | "tsv"
-                | "json"
-                | "jsonl"
-                | "yaml"
-                | "yml"
-                | "toml"
-                | "ini"
-                | "conf"
-                | "cfg"
-                | "xml"
-                | "html"
-                | "htm"
-                | "css"
-                | "js"
-                | "ts"
-                | "rs"
-                | "py"
-                | "sh"
-                | "c"
-                | "h"
-                | "cpp"
-                | "hpp"
-                | "sql"
-                | "desktop"
-        )
-        || matches!(
-            path.file_name().and_then(|name| name.to_str()),
-            Some("README" | "LICENSE" | "Makefile" | "Dockerfile")
-        )
 }
 
 /// Comparación natural de nombres: trata las secuencias de dígitos como números,
@@ -109,7 +64,7 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     order.then_with(|| a.cmp(b))
 }
 
-/// Lista de imágenes de una carpeta con cursor sobre la actual.
+/// Lista de elementos de una carpeta con cursor sobre el actual.
 pub struct Directory {
     files: Vec<PathBuf>,
     index: usize,
@@ -123,7 +78,7 @@ impl Directory {
         Self::list(initial, false)
     }
 
-    /// La interfaz Qt también dispone de lectores para documentos.
+    /// Qt recorre todos los archivos y carpetas: muestra un aviso si no puede leerlos.
     #[allow(dead_code)] // Navegación de la interfaz Qt.
     pub fn with_documents(initial: PathBuf) -> Self {
         Self::list(initial, true)
@@ -141,8 +96,7 @@ impl Directory {
             .map(|rd| {
                 rd.filter_map(|e| e.ok().map(|e| e.path()))
                     .filter(|p| {
-                        (documents && p.is_dir())
-                            || (p.is_file() && (is_image(p) || (documents && is_document(p))))
+                        (documents && p.is_dir()) || (p.is_file() && (documents || is_image(p)))
                     })
                     .collect()
             })
@@ -225,6 +179,8 @@ mod tests {
         assert_eq!(extended.current().file_name().unwrap(), "2.md");
         assert!(extended.next());
         assert_eq!(extended.current().file_name().unwrap(), "3.pdf");
+        assert!(extended.next());
+        assert_eq!(extended.current().file_name().unwrap(), "4.zip");
         assert!(extended.next());
         assert_eq!(extended.current().file_name().unwrap(), "1.png");
     }

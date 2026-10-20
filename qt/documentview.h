@@ -71,6 +71,13 @@ public:
         m_folder = nullptr;
         m_notice->clear();
         m_notice->hide();
+        m_notice->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        if (kind == 5) {
+            m_notice->setAlignment(Qt::AlignCenter);
+            m_notice->setText("Formato no compatible");
+            m_notice->show();
+            return;
+        }
         if (kind == 2) {
             openPdf(path);
             return;

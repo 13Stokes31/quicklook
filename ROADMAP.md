@@ -1,5 +1,15 @@
 # Pendientes
 
+## Versión 1.0
+
+- [x] Nombre del elemento arriba a la izquierda del marco, sin cambiar las
+  proporciones 85/90 %. Nombres largos acortados y nombre completo al pasar el ratón.
+- [x] Navegación Qt por todos los archivos y carpetas del directorio contenedor,
+  con aviso de «Formato no compatible» para binarios sin lector. Los errores
+  de formatos admitidos y los avisos de dependencias opcionales se conservan.
+- [ ] Verificar, instalar y publicar 1.0.0; comprobar el paquete instalado y AUR.
+- [ ] Revisión visual de la cabecera en los temas y escalas de TESTING.md.
+
 ## Documentos
 
 - [ ] Validación manual de texto y PDF en Plasma Wayland, temas claro/oscuro y

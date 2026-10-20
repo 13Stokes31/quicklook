@@ -1,6 +1,6 @@
 # Maintainer: Stokes
 pkgname=quicklook-bin
-pkgver=0.4.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc='Quick Look image, document and folder preview for KDE Plasma 6 with optional soft blur (prebuilt)'
 arch=('x86_64')
@@ -19,7 +19,7 @@ conflicts=('quicklook')
 options=('!debug' '!strip')
 install=quicklook.install
 source=("$url/releases/download/v$pkgver/quicklook-$pkgver-linux-x86_64.tar.gz")
-sha256sums=('9e0b1c77af0422fe1ea1833a551c86c7cd75ef83066c429637f4e28a678b47d4')
+sha256sums=('f50a11db502cd75bded9fc4f5a6bb2f79631e9cf44fd663dd58017f5502294ec')
 
 package() {
   cd "quicklook-$pkgver-linux-x86_64"

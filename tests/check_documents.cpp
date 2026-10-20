@@ -73,6 +73,34 @@ class Documents final : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void unsupportedNoticeAndRecovery()
+    {
+        QTemporaryDir dir;
+        QFile text(dir.filePath("notes.txt"));
+        QVERIFY(text.open(QIODevice::WriteOnly));
+        text.write("literal text");
+        text.close();
+        DocumentView view(Qt::white, nullptr);
+        view.resize(700, 500);
+        view.show();
+        view.open(text.fileName(), 1);
+        auto *editor = view.findChild<QPlainTextEdit *>();
+        QVERIFY(editor->isVisible());
+        // El aviso no abre ni decodifica los archivos sin lector.
+        view.open(dir.filePath("missing.zip"), 5);
+        QCOMPARE(view.state(), 1u);
+        QVERIFY(!editor->isVisible());
+        auto *notice = view.findChild<QLabel *>();
+        QVERIFY(notice->isVisible());
+        QCOMPARE(notice->text(), QString("Formato no compatible"));
+        QCOMPARE(notice->alignment(), Qt::AlignCenter);
+        view.open(text.fileName(), 1);
+        QVERIFY(!notice->isVisible());
+        QCOMPARE(notice->alignment(), Qt::AlignLeft | Qt::AlignVCenter);
+        QVERIFY(editor->isVisible());
+        QCOMPARE(editor->toPlainText(), QString("literal text"));
+    }
+
     void folderShowsOnlyDirectContents()
     {
         QTemporaryDir dir;

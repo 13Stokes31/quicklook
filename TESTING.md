@@ -1,6 +1,6 @@
 # Comprobaciones manuales
 
-Comprobaciones de uso real pendientes para la versión 0.4.0. Estas
+Comprobaciones de uso real pendientes para la versión 1.0.0. Estas
 comprobaciones complementan las pruebas automáticas descritas en README.md.
 Las pruebas automáticas del paquete instalado no sustituyen esta revisión manual.
 
@@ -36,3 +36,14 @@ Las pruebas automáticas del paquete instalado no sustituyen esta revisión manu
   durante la conversión, cerrar y reabrir; comprobar que el visor responde.
 - [ ] Con una dependencia opcional ausente, comprobar que Office muestra el
   aviso correspondiente y que imágenes, texto y carpetas siguen disponibles.
+
+- [ ] Abrir una imagen desde Dolphin y recorrer con las flechas una carpeta que
+  también contenga texto, PDF, Office, carpetas y un ZIP o vídeo. Comprobar que
+  el nombre de cada elemento se ve arriba a la izquierda del marco, incluso
+  durante la carga y ante errores, sin tapar el contenido ni cambiar el 85/90 %.
+  Los archivos sin lector deben mostrar «Formato no compatible» en el centro;
+  seguir adelante y volver atrás debe recuperar las vistas compatibles.
+- [ ] Repetir con un nombre largo, acentos y caracteres como `<b>`: comprobar
+  que se muestra literalmente, se acorta con puntos suspensivos y el nombre
+  completo aparece al pasar el ratón. Revisar legibilidad del nombre en temas
+  claro/oscuro y con escalado fraccionario, tanto con blur como con fondo opaco.

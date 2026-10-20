@@ -26,6 +26,7 @@ enum Kind {
     Pdf = 2,
     Office = 3,
     Folder = 4,
+    Unsupported = 5,
 }
 
 fn document_kind(path: &std::path::Path) -> Kind {
@@ -52,14 +53,18 @@ fn document_kind(path: &std::path::Path) -> Kind {
     if bytes.starts_with(b"%PDF-") {
         return Kind::Pdf;
     }
-    if image::guess_format(bytes).is_ok() {
-        return Kind::Image;
+    if let Ok(format) = image::guess_format(bytes) {
+        return if format != image::ImageFormat::Avif && format.reading_enabled() {
+            Kind::Image
+        } else {
+            Kind::Unsupported
+        };
     }
     if bytes
         .iter()
         .any(|&byte| byte < 32 && !matches!(byte, b'\t' | b'\r' | b'\n' | 12))
     {
-        Kind::Image
+        Kind::Unsupported
     } else {
         Kind::Text
     }
@@ -135,6 +140,9 @@ impl Backend {
             .unwrap_or_default()
             .to_string_lossy();
         let title = match &self.preview {
+            Preview::Document if self.kind == Kind::Unsupported => {
+                format!("{name} — Formato no compatible — Quick Look")
+            }
             Preview::Loading => format!("{name} — Cargando — Quick Look"),
             Preview::Ready(_) | Preview::Document => format!("{name} — Quick Look"),
             Preview::Failed(error) => format!("{name} — No se pudo abrir: {error} — Quick Look"),
@@ -323,7 +331,7 @@ mod tests {
         std::fs::write(&binary, b"bad\0data").unwrap();
         assert_eq!(document_kind(&image) as u32, Kind::Image as u32);
         assert_eq!(document_kind(&pdf) as u32, Kind::Pdf as u32);
-        assert_eq!(document_kind(&binary) as u32, Kind::Image as u32);
+        assert_eq!(document_kind(&binary) as u32, Kind::Unsupported as u32);
     }
 
     #[test]
@@ -339,6 +347,37 @@ mod tests {
             assert!(matches!(backend.preview, Preview::Document));
             assert!(backend.render(200, 100).is_none());
         }
+    }
+
+    #[test]
+    fn unsupported_files_show_their_name_and_allow_navigation_in_both_directions() {
+        let dir = TestDir::new();
+        let first = dir.image("1.png", 2, 2);
+        let binary = dir.path.join("2 archive.zip");
+        std::fs::write(&binary, b"PK\x03\x04binary").unwrap();
+        let text = dir.path.join("3.custom");
+        std::fs::write(&text, b"plain text without a known extension").unwrap();
+        let mut backend = Backend::new(first).unwrap();
+        loaded(&mut backend);
+        assert!(backend.dir.next());
+        backend.request();
+        assert_eq!(backend.kind as u32, Kind::Unsupported as u32);
+        assert!(matches!(backend.preview, Preview::Document));
+        assert!(backend.render(180, 180).is_none());
+        assert_eq!(
+            backend.title.to_str().unwrap(),
+            "2 archive.zip — Formato no compatible — Quick Look"
+        );
+        assert!(backend.dir.next());
+        backend.request();
+        assert_eq!(backend.kind as u32, Kind::Text as u32);
+        assert!(backend.dir.prev());
+        backend.request();
+        assert_eq!(backend.kind as u32, Kind::Unsupported as u32);
+        assert!(backend.dir.prev());
+        backend.request();
+        loaded(&mut backend);
+        assert!(matches!(backend.preview, Preview::Ready(_)));
     }
 
     fn loaded(backend: &mut Backend) {

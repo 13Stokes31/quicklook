@@ -11,7 +11,8 @@ void ql_destroy(QuickLookBackend *backend);
 bool ql_poll(QuickLookBackend *backend);
 bool ql_navigate(QuickLookBackend *backend, bool next);
 uint32_t ql_state(const QuickLookBackend *backend);
-// 0: imagen, 1: texto, 2: PDF. La ruta conserva la codificación nativa de Unix.
+// 0: imagen, 1: texto, 2: PDF, 3: Office, 4: carpeta, 5: no compatible.
+// La ruta conserva la codificación nativa de Unix.
 uint32_t ql_kind(const QuickLookBackend *backend);
 const char *ql_path(const QuickLookBackend *backend);
 const char *ql_title(const QuickLookBackend *backend);

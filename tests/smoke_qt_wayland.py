@@ -45,7 +45,7 @@ def documents_session(work, destination, env, server, dbus, log):
                     for line in reversed(lines):
                         if not line.startswith("{"): continue
                         item = json.loads(line)
-                        if item["title"] == name + " — Quick Look" and item["kind"] == kind and item["state"] == 1 and item["blur_mode"] == blur:
+                        if item["title"] == name + (" — Formato no compatible" if kind == "unsupported" else "") + " — Quick Look" and item["kind"] == kind and item["state"] == 1 and item["blur_mode"] == blur:
                             return item
                 value = wait(check, viewer, timeout=65 if kind == "office" else 15)
                 assert value["frame_width"] == round(value["screen_width"] * 0.9), value
@@ -55,6 +55,10 @@ def documents_session(work, destination, env, server, dbus, log):
                 if kind != "image":
                     assert abs(value["image_width"] - value["screen_width"] * 0.85) <= 1, value
                     assert abs(value["image_height"] - value["screen_height"] * 0.85) <= 1, value
+                assert value["filename"] == name, value
+                assert value["filename_label"] == name, value
+                assert value["filename_x"] > 0 and value["filename_y"] == 0, value
+                assert value["filename_height"] <= round(value["frame_height"] * (1 - 85 / 90) / 2), value
                 if kind == "pdf": assert value["pdf_pages"] == 2, value
                 if kind == "folder": assert value["folder_entries"] == 2, value
                 if kind == "office": assert value["pdf_pages"] == 1, value
@@ -91,6 +95,13 @@ def documents_session(work, destination, env, server, dbus, log):
             if (work / "documents/5 documento.docx").exists():
                 command("content-next"); ready("5 documento.docx", "office"); capture("qt-documento-office")
                 count = command("previous"); ready("4 carpeta", "folder", after=count)
+            command("content-space")
+            assert viewer.wait(timeout=5) == 0
+            viewer = None
+            viewer = subprocess.Popen([str(work / "qt-controls"), str(work / "documents/6 archivo.zip")],
+                env=env, stdin=subprocess.PIPE, stdout=output, stderr=log)
+            ready("6 archivo.zip", "unsupported"); capture("qt-documento-no-compatible")
+            command("next"); ready("1 notas.md", "text")
             command("content-space")
             assert viewer.wait(timeout=5) == 0
             viewer = None
@@ -332,6 +343,7 @@ def main():
         (work / "images/2 error.png").write_bytes(b"invalid")
         png(work / "images/3 azul.png", [0, 0, 255], 1200, 600)
         (work / "documents/1 notas.md").write_text("# Texto literal\nPrueba de lectura y selección.\n" * 50)
+        (work / "documents/6 archivo.zip").write_bytes(b"PK\x03\x04binary")
         pdf(work / "documents/2 documento.pdf")
         png(work / "documents/3 imagen.png", [0, 0, 255], 1200, 600)
         folder = work / "documents/4 carpeta"

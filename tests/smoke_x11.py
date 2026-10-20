@@ -6,6 +6,7 @@ Requiere el binario release, Xvfb, xdotool y libX11, sin módulos Python externo
 
 import argparse
 import ctypes
+import json
 import os
 from pathlib import Path
 import select
@@ -148,13 +149,37 @@ def main():
                     assert focused.returncode == 0, focused.stderr
                     return window
 
-                def ready(window, name, error=False):
+                def ready(window, name, error=False, unsupported=False):
                     def check():
                         title = xdo("getwindowname", window).stdout.strip()
+                        if unsupported:
+                            return title == name + " — Formato no compatible — Quick Look"
                         return title.startswith(name + " — ") and (
                             "No se pudo abrir:" in title if error else title == name + " — Quick Look"
                         )
                     wait_for(check, viewer)
+                    if args.documents:
+                        def reported():
+                            for line in reversed((work / "viewer.log").read_text().splitlines()):
+                                if not line.startswith("{"): continue
+                                value = json.loads(line)
+                                if value.get("filename") == name and value["state"] == 1:
+                                    return value
+                            return None
+                        value = wait_for(reported, viewer)
+                        assert value["filename_x"] > 0 and value["filename_y"] == 0, value
+                        assert value["filename_width"] > 0 and value["filename_height"] > 0, value
+                        assert value["filename_height"] <= round(value["frame_height"] * (1 - 85 / 90) / 2), value
+                        label = value["filename_label"]
+                        assert label == name or "…" in label, value
+                        if unsupported: assert value["kind"] == "unsupported", value
+                        # Verificar que el nombre también se pinta en el margen.
+                        def header_painted():
+                            return any(pixel_at(window, x, y) != 0xFFFFFF
+                                for y in range(1, value["filename_height"])
+                                for x in range(value["filename_x"], min(value["filename_x"] + 120, value["frame_width"] - value["filename_x"])))
+                        wait_for(header_painted, viewer)
+                        return value
 
                 def pixel_at(window, x, y):
                     image = xlib.XGetImage(display, window, x, y, 1, 1, ctypes.c_ulong(-1).value, 2)
@@ -220,6 +245,8 @@ def main():
                     png(image1, [0, 255, 0])
                     png(image2, [0, 0, 255])
                     text.write_text("# Texto literal\nSelecciona y copia.\n" * 100)
+                    unknown = documents / "2a no compatible <b>.zip"
+                    unknown.write_bytes(b"PK\x03\x04binary")
                     window = open_viewer(image1)
                     ready(window, image1.name)
                     painted(window, 0x00FF00)
@@ -233,8 +260,12 @@ def main():
                     xdo("click", 1)
                     assert xdo("windowfocus", "--sync", window).returncode == 0
                     xdo("key", "--window", window, "Right")
+                    ready(window, unknown.name, unsupported=True)
+                    xdo("key", "--window", window, "Right")
                     ready(window, image2.name)
                     painted(window, 0x0000FF)
+                    xdo("key", "--window", window, "Left")
+                    ready(window, unknown.name, unsupported=True)
                     xdo("key", "--window", window, "Left")
                     ready(window, text.name)
                     # Xvfb no tiene gestor de ventanas: restablecer el foco X
@@ -247,7 +278,7 @@ def main():
                     assert xdo("windowfocus", "--sync", window).returncode == 0
                     xdo("key", "--window", window, "Escape")
                     assert viewer.wait(timeout=5) == 0
-                    print("Imagen → texto → imagen, foco del editor, Espacio y Escape: OK")
+                    print("Nombre en el marco, imagen ↔ texto ↔ no compatible ↔ imagen, foco y cierre: OK")
                     if args.pdf:
                         document = documents / "4.pdf"
                         pdf(document)
@@ -268,6 +299,14 @@ def main():
                         xdo("key", "--window", window, "space")
                         assert viewer.wait(timeout=5) == 0
                         print("PDF multipágina renderizado, desplazamiento y PDF ↔ imagen: OK")
+                    long_file = documents / ("5 " + "nombre" * 36 + ".zip")
+                    long_file.write_bytes(b"PK\x03\x04binary")
+                    window = open_viewer(long_file)
+                    value = ready(window, long_file.name, unsupported=True)
+                    assert "…" in value["filename_label"], value
+                    xdo("key", "--window", window, "space")
+                    assert viewer.wait(timeout=5) == 0
+                    print("Nombre largo acortado en el marco, nombre completo conservado: OK")
             except Exception:
                 viewer_log.flush()
                 server_log.flush()

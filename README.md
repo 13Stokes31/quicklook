@@ -1,18 +1,22 @@
 # quicklook
 
 Visor de imágenes, documentos y carpetas tipo Quick Look para KDE Plasma 6 / Wayland, con núcleo Rust.
-Abre una vista previa en una ventana sin bordes; las flechas recorren los elementos compatibles de
-la carpeta y Escape, Espacio o perder el foco cierran la vista previa.
+Abre una vista previa en una ventana sin bordes; las flechas recorren los archivos y carpetas del
+directorio contenedor y Escape, Espacio o perder el foco cierran la vista previa.
 
 Desde la versión **0.3.0** admite también texto y PDF. PDF es opcional y utiliza
 Qt PDF, distribuido en Arch dentro de `qt6-webengine`.
-La versión **0.4.0**, añade documentos de Office mediante LibreOffice opcional y
+La versión **0.4.0** añade documentos de Office mediante LibreOffice opcional y
 el contenido directo de carpetas, sin explorar las subcarpetas.
+La versión **1.0.0** muestra el nombre arriba a la izquierda, en el marco, y
+un aviso de «Formato no compatible» al pasar por archivos sin lector.
 
 ## Qué hace
 
-- Conserva el archivo solicitado, incluso si su extensión no está en la lista de
-  navegación. Comprueba el contenido para identificar el formato.
+- Conserva el archivo solicitado y comprueba el contenido para identificar el
+  formato. Las flechas incluyen archivos no compatibles: muestran un aviso
+  centrado y permiten continuar navegando. Un archivo dañado de un formato
+  admitido mantiene su mensaje de error específico.
 - Navega en orden natural (`foto2` antes que `foto10`), con vuelta al principio/fin.
   El orden no sigue la selección, los filtros ni la ordenación elegida en Dolphin.
 - La interfaz Qt admite texto UTF-8 y Latin-1: TXT, Markdown, registros, CSV,
@@ -22,9 +26,9 @@ el contenido directo de carpetas, sin explorar las subcarpetas.
   Izquierda/Derecha cambian de archivo incluso con el editor enfocado.
   Lee como máximo **512 KiB** y muestra las primeras **10 000 líneas**, con un
   aviso si recorta el contenido. No admite UTF-16 y rechaza datos binarios.
-  La navegación añade extensiones de texto habituales y los nombres README,
-  LICENSE, Makefile y Dockerfile; no abre todos los archivos de la carpeta para
-  clasificarlos. Un texto solicitado directamente puede tener otra extensión.
+  Un texto puede tener cualquier extensión. Solo se comprueba el contenido al
+  seleccionar el archivo; no se abren todos los archivos de la carpeta para
+  clasificarlos.
   El contenido ocupa un área del 85 % dentro del marco del 90 %, conservando el
   blur del margen. El lector Rust original `quicklook-opaque` sigue admitiendo
   únicamente imágenes.
@@ -62,6 +66,10 @@ el contenido directo de carpetas, sin explorar las subcarpetas.
 - Muestra tres puntos durante la carga y una cruz roja cuando no puede abrir una
   imagen. El título de la ventana y stderr contienen el archivo y el error.
   Puedes seguir navegando; nunca deja una imagen anterior fingiendo ser la nueva.
+- El nombre del archivo o carpeta aparece arriba a la izquierda del marco,
+  también durante la carga y los errores. Los nombres largos se acortan en el
+  centro; al pasar el ratón se muestra el nombre completo. El texto usa el color
+  de la paleta de la ventana y se muestra literalmente.
 - Mantiene un marco del **90 % del ancho y del alto del monitor**, considerando su
   escala, durante la carga y al cambiar de imagen. La imagen se amplía o reduce
   dentro de un área máxima del **85 % del ancho y del alto del monitor**, centrada
@@ -437,6 +445,9 @@ python3 tests/smoke_qt_wayland.py --documents-only
 Las pruebas cubren el archivo inicial, filtrado y orden de navegación, expulsión
 de caché, cola acotada, recuperación tras un archivo inválido, resultados tardíos,
 límites de imagen, transparencia, proporciones extremas y tamaño de ventana.
+La prueba Qt/X11 comprueba también el nombre pintado en el margen, su
+acortamiento y la navegación de ida y vuelta por un archivo no compatible. La
+prueba Wayland repite el aviso con blur nativo y conserva los respaldos.
 Los archivos de prueba se crean dentro de `target/`.
 
 La prueba opcional de Office requiere LibreOffice y el módulo PDF compilado.

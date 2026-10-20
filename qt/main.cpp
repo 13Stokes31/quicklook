@@ -61,6 +61,11 @@ public:
         setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
         setAttribute(Qt::WA_TranslucentBackground);
         m_background = QColor::fromRgb(ql_background(backend));
+        m_filename = new QLabel(this);
+        m_filename->setObjectName("quicklook-filename");
+        m_filename->setTextFormat(Qt::PlainText);
+        m_filename->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        m_filename->setForegroundRole(QPalette::WindowText);
         qApp->installEventFilter(this);
         auto bus = QDBusConnection::sessionBus();
         m_service = QString("org.quicklook.Blur.p%1").arg(QCoreApplication::applicationPid());
@@ -236,10 +241,24 @@ private:
         }
         m_pixels = nullptr;
         m_imageRect = {};
+        // El nombre ocupa el margen superior, fuera del área de contenido.
+        // Usar siempre la ruta seleccionada, incluso durante la carga o un error.
+        const int insetX = qRound(width() * (1.0 - 85.0 / 90.0) / 2.0);
+        const int insetY = qRound(height() * (1.0 - 85.0 / 90.0) / 2.0);
+        const QString path = QFile::decodeName(QByteArray(ql_path(m_backend.get())));
+        const QString name = QFileInfo(path).fileName();
+        const QString filename = name.isEmpty() ? path : name;
+        m_filename->setGeometry(insetX, 0, width() - 2 * insetX, insetY);
+        QFont font = this->font();
+        if (QFontMetrics(font).height() > insetY - 2) {
+            font.setPixelSize(qMax(1, insetY - 2));
+        }
+        m_filename->setFont(font);
+        m_filename->setText(m_filename->fontMetrics().elidedText(filename, Qt::ElideMiddle, m_filename->width()));
+        m_filename->setAccessibleName(filename);
+        m_filename->setToolTip("<qt>" + filename.toHtmlEscaped() + "</qt>");
         if (ql_kind(m_backend.get()) != 0) {
             if (!m_document) { m_document = new DocumentView(m_background, this); }
-            const int insetX = qRound(width() * (1.0 - 85.0 / 90.0) / 2.0);
-            const int insetY = qRound(height() * (1.0 - 85.0 / 90.0) / 2.0);
             m_imageRect = rect().adjusted(insetX, insetY, -insetX, -insetY);
             m_document->setGeometry(m_imageRect.toAlignedRect());
             m_document->open(QByteArray(ql_path(m_backend.get())), ql_kind(m_backend.get()));
@@ -291,11 +310,14 @@ private:
     {
         const bool document = ql_kind(m_backend.get()) != 0;
         const QJsonObject report{{"title", windowTitle()}, {"state", int(document && m_document ? m_document->state() : ql_state(m_backend.get()))},
-            {"kind", ql_kind(m_backend.get()) == 4 ? "folder" : ql_kind(m_backend.get()) == 3 ? "office"
+            {"kind", ql_kind(m_backend.get()) == 5 ? "unsupported" : ql_kind(m_backend.get()) == 4 ? "folder" : ql_kind(m_backend.get()) == 3 ? "office"
                 : ql_kind(m_backend.get()) == 2 ? "pdf" : document ? "text" : "image"},
             {"text_truncated", document && m_document && m_document->truncated()},
             {"pdf_pages", document && m_document ? m_document->pageCount() : 0},
             {"folder_entries", document && m_document ? m_document->entryCount() : 0},
+            {"filename", m_filename->accessibleName()}, {"filename_label", m_filename->text()},
+            {"filename_x", m_filename->x()}, {"filename_y", m_filename->y()},
+            {"filename_width", m_filename->width()}, {"filename_height", m_filename->height()},
             {"frame_width", width()}, {"frame_height", height()}, {"device_pixel_ratio", devicePixelRatioF()},
             {"screen_width", screen()->geometry().width()}, {"screen_height", screen()->geometry().height()},
             {"image_x", m_imageRect.x()}, {"image_y", m_imageRect.y()},
@@ -309,6 +331,7 @@ private:
 
     std::unique_ptr<QuickLookBackend, decltype(&ql_destroy)> m_backend;
     DocumentView *m_document = nullptr;
+    QLabel *m_filename = nullptr;
     BlurGeometry m_geometry;
     QTimer m_poll, m_availability;
     QPointer<QScreen> m_screen;
