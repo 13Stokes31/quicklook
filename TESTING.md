@@ -1,6 +1,6 @@
 # Comprobaciones manuales
 
-Comprobaciones de uso real pendientes para la versión 1.0.0. Estas
+Comprobaciones de uso real pendientes para la versión 1.0.1. Estas
 comprobaciones complementan las pruebas automáticas descritas en README.md.
 Las pruebas automáticas del paquete instalado no sustituyen esta revisión manual.
 
@@ -39,8 +39,9 @@ Las pruebas automáticas del paquete instalado no sustituyen esta revisión manu
 
 - [ ] Abrir una imagen desde Dolphin y recorrer con las flechas una carpeta que
   también contenga texto, PDF, Office, carpetas y un ZIP o vídeo. Comprobar que
-  el nombre de cada elemento se ve arriba a la izquierda del marco, incluso
-  durante la carga y ante errores, sin tapar el contenido ni cambiar el 85/90 %.
+  el nombre de cada elemento se ve más grande y en negrita arriba a la izquierda
+  del marco, incluso durante la carga y ante errores, sin tapar el contenido ni
+  cambiar el 85/90 %.
   Los archivos sin lector deben mostrar «Formato no compatible» en el centro;
   seguir adelante y volver atrás debe recuperar las vistas compatibles.
 - [ ] Repetir con un nombre largo, acentos y caracteres como `<b>`: comprobar

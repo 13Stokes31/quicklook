@@ -10,6 +10,8 @@ La versión **0.4.0** añade documentos de Office mediante LibreOffice opcional 
 el contenido directo de carpetas, sin explorar las subcarpetas.
 La versión **1.0.0** muestra el nombre arriba a la izquierda, en el marco, y
 un aviso de «Formato no compatible» al pasar por archivos sin lector.
+La versión **1.0.1** resalta el nombre en negrita y aprovecha la altura del
+margen superior para hacerlo más legible.
 
 ## Qué hace
 
@@ -67,7 +69,8 @@ un aviso de «Formato no compatible» al pasar por archivos sin lector.
   imagen. El título de la ventana y stderr contienen el archivo y el error.
   Puedes seguir navegando; nunca deja una imagen anterior fingiendo ser la nueva.
 - El nombre del archivo o carpeta aparece arriba a la izquierda del marco,
-  también durante la carga y los errores. Los nombres largos se acortan en el
+  en negrita y con un tamaño adaptado a la altura del margen superior, también
+  durante la carga y los errores. Los nombres largos se acortan en el
   centro; al pasar el ratón se muestra el nombre completo. El texto usa el color
   de la paleta de la ventana y se muestra literalmente.
 - Mantiene un marco del **90 % del ancho y del alto del monitor**, considerando su

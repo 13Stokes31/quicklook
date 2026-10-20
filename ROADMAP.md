@@ -7,7 +7,16 @@
 - [x] Navegación Qt por todos los archivos y carpetas del directorio contenedor,
   con aviso de «Formato no compatible» para binarios sin lector. Los errores
   de formatos admitidos y los avisos de dependencias opcionales se conservan.
-- [ ] Verificar, instalar y publicar 1.0.0; comprobar el paquete instalado y AUR.
+- [x] Verificar fuentes y binario, instalar 1.0.0-1 y publicar v1.0.0 en GitHub
+  (20 de octubre de 2026). Descargas públicas y SHA256 verificados. El ejecutable
+  instalado supera las pruebas gráficas y Espacio funciona en un Dolphin privado.
+- [ ] Publicar 1.0.1 en GitHub y actualizar AUR, que continúa en 0.4.0-1.
+  El usuario aprobó el título más grande y en negrita y autorizó retomar ambas
+  publicaciones el 20 de octubre de 2026. Se conserva v1.0.0 sin reemplazar sus
+  archivos ni su etiqueta.
+- [x] Cabecera más grande y en negrita preparada para 1.0.1, aprobada por el
+  usuario en la captura de prueba. Se conserva v1.0.0 sin reemplazar sus archivos.
+- [ ] Instalar y verificar localmente 1.0.1 con el título resaltado.
 - [ ] Revisión visual de la cabecera en los temas y escalas de TESTING.md.
 
 ## Documentos

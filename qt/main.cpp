@@ -250,8 +250,10 @@ private:
         const QString filename = name.isEmpty() ? path : name;
         m_filename->setGeometry(insetX, 0, width() - 2 * insetX, insetY);
         QFont font = this->font();
-        if (QFontMetrics(font).height() > insetY - 2) {
-            font.setPixelSize(qMax(1, insetY - 2));
+        font.setBold(true);
+        font.setPixelSize(qMax(1, insetY - 2));
+        while (font.pixelSize() > 1 && QFontMetrics(font).height() > insetY) {
+            font.setPixelSize(font.pixelSize() - 1);
         }
         m_filename->setFont(font);
         m_filename->setText(m_filename->fontMetrics().elidedText(filename, Qt::ElideMiddle, m_filename->width()));
@@ -316,6 +318,8 @@ private:
             {"pdf_pages", document && m_document ? m_document->pageCount() : 0},
             {"folder_entries", document && m_document ? m_document->entryCount() : 0},
             {"filename", m_filename->accessibleName()}, {"filename_label", m_filename->text()},
+            {"filename_font_pixels", m_filename->font().pixelSize()},
+            {"filename_bold", m_filename->font().bold()},
             {"filename_x", m_filename->x()}, {"filename_y", m_filename->y()},
             {"filename_width", m_filename->width()}, {"filename_height", m_filename->height()},
             {"frame_width", width()}, {"frame_height", height()}, {"device_pixel_ratio", devicePixelRatioF()},
