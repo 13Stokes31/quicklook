@@ -10,13 +10,26 @@
 - [x] Verificar fuentes y binario, instalar 1.0.0-1 y publicar v1.0.0 en GitHub
   (20 de octubre de 2026). Descargas públicas y SHA256 verificados. El ejecutable
   instalado supera las pruebas gráficas y Espacio funciona en un Dolphin privado.
-- [ ] Publicar 1.0.1 en GitHub y actualizar AUR, que continúa en 0.4.0-1.
-  El usuario aprobó el título más grande y en negrita y autorizó retomar ambas
-  publicaciones el 20 de octubre de 2026. Se conserva v1.0.0 sin reemplazar sus
-  archivos ni su etiqueta.
-- [x] Cabecera más grande y en negrita preparada para 1.0.1, aprobada por el
-  usuario en la captura de prueba. Se conserva v1.0.0 sin reemplazar sus archivos.
-- [ ] Instalar y verificar localmente 1.0.1 con el título resaltado.
+- [x] Publicar 1.0.1 en GitHub e instalar `quicklook-bin 1.0.1-1` localmente
+  (20 de octubre de 2026). Commit y etiqueta: `fd9a39f`, `v1.0.1`. Comprobados
+  el paquete instalado (33 archivos sin alteraciones), navegación por texto,
+  imágenes y archivos no compatibles, PDF, nombres largos y cierre en Xvfb.
+  El atajo y la configuración personal de Dolphin/KWin se conservan.
+- [x] Cabecera más grande y en negrita, aprobada por el usuario en la captura
+  de prueba. Se conservan v1.0.0 y sus archivos sin reemplazarlos.
+- [ ] Reanudar después del reinicio solicitado por el usuario el 20 de octubre:
+  descargar sin autenticación los tres archivos de v1.0.1 y contrastarlos con
+  `target/releases/quicklook-1.0.1-SHA256SUMS`. La creación de la publicación
+  terminó correctamente antes de la pausa; su URL es
+  https://github.com/13Stokes31/quicklook/releases/tag/v1.0.1.
+- [ ] Después de verificar las descargas públicas, publicar la receta AUR ya
+  preparada en `target/aur-publish/quicklook-bin`: commit local `6d6b429`,
+  un commit por delante de `origin/master` (`96f96c5`). El árbol está limpio.
+  La publicación de GitHub y AUR fue autorizada antes de la pausa. Usar SSH
+  con `-F /dev/null` para no leer configuración ajena al proyecto. Confirmar
+  finalmente que AUR anuncia `quicklook-bin 1.0.1-1` y registrar el resultado.
+  AUR continúa en 0.4.0-1; no se ha hecho el push de la nueva receta.
+  El nombre AUR `quicklook` para las fuentes sigue pendiente de resolución.
 - [ ] Revisión visual de la cabecera en los temas y escalas de TESTING.md.
 
 ## Documentos
